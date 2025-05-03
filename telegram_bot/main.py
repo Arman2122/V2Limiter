@@ -7,6 +7,8 @@ listing admins, setting special limits, and creating a config and more...
 import asyncio
 import os
 import sys
+import re
+import json
 
 try:
     from telegram import Update
@@ -41,6 +43,7 @@ from telegram_bot.utils import (
     show_except_users_handler,
     write_country_code_json,
 )
+from utils.logs import logger
 from utils.read_config import read_config
 
 (
@@ -61,12 +64,62 @@ from utils.read_config import read_config
     GET_TIME_TO_ACTIVE_USERS,
 ) = range(15)
 
-data = asyncio.run(read_config())
-try:
-    bot_token = data["BOT_TOKEN"]
-except KeyError as exc:
-    raise ValueError("BOT_TOKEN is missing in the config file.") from exc
-application = ApplicationBuilder().token(bot_token).build()
+# Replace the direct asyncio.run() call with a lazy-loading approach
+# Initialize with None and load it during application startup
+config_data = None
+bot_token = None
+
+# Function to load config data
+async def load_config():
+    global config_data, bot_token
+    config_data = await read_config()
+    try:
+        bot_token = config_data["BOT_TOKEN"]
+    except KeyError as exc:
+        raise ValueError("BOT_TOKEN is missing in the config file.") from exc
+    return bot_token
+
+# Function to get the bot token synchronously from the config file
+def get_bot_token_sync():
+    """Get bot token directly from config file synchronously"""
+    config_file = "config.json"
+    if not os.path.exists(config_file):
+        logger.error("Config file not found")
+        return None
+        
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            config = json.load(f)
+            if "BOT_TOKEN" not in config:
+                logger.error("BOT_TOKEN not found in config file")
+                return None
+            return config["BOT_TOKEN"]
+    except (json.JSONDecodeError, IOError) as error:
+        logger.error(f"Error reading config file: {error}")
+        return None
+
+# Try to read the token directly from the config file
+initial_token = get_bot_token_sync() or "placeholder_token"
+logger.info(f"Initializing application with {'valid token' if initial_token != 'placeholder_token' else 'placeholder token'}")
+
+# Initialize the application with the token from config if available
+application = ApplicationBuilder().token(initial_token).build()
+
+# We'll update the token when it's actually needed
+async def initialize_bot():
+    """Initialize the bot with the correct token."""
+    global application
+    token = await load_config()
+    
+    # If we're already using the correct token, no need to rebuild
+    if token == initial_token and token != "placeholder_token":
+        logger.info("Telegram bot already initialized with correct token")
+        return
+    
+    # Create a new application with the correct token
+    # Instead of trying to update the existing one
+    application = ApplicationBuilder().token(token).build()
+    logger.info("Telegram bot initialized with token from config")
 
 
 START_MESSAGE = """
@@ -97,18 +150,6 @@ START_MESSAGE = """
 
 ⚙️ <b>For support:</b> @YourSupportUsername
 """
-
-
-async def send_logs(msg):
-    """Send logs to all admins."""
-    admins = await check_admin()
-    for admin in admins:
-        try:
-            await application.bot.sendMessage(
-                chat_id=admin, text=msg, parse_mode="HTML"
-            )
-        except Exception as error:  # pylint: disable=broad-except
-            print(f"Failed to send message to admin {admin}: {error}")
 
 
 async def add_admin(update: Update, _context: ContextTypes.DEFAULT_TYPE):

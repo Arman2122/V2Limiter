@@ -92,6 +92,78 @@ Then edit the `config.json` file with your information:
 - `GENERAL_LIMIT`: Default IP limit for users not in the special limit list
 - `SPECIAL_LIMIT`: Object containing username-specific IP limits
 
+## Enhanced Logging
+
+Marz Limiter includes a robust logging system that provides detailed information about the application's operation:
+
+- **Colorized Console Output**: Different log levels are displayed with distinct colors for better visibility:
+  - INFO: Green
+  - WARNING: Yellow
+  - ERROR: Red
+  - CRITICAL: Bold Red
+  - DEBUG: Blue
+
+- **Detailed File Logs**: All log events are recorded in rotating log files, with each file limited to 10MB and retaining the 5 most recent files.
+
+- **Log File Location**: Logs are stored in the `logs/` directory with filenames that include the date (e.g., `logs/app_20231115.log`).
+
+- **Comprehensive Information**: File logs include timestamps, log levels, filenames, line numbers, and function names for easier troubleshooting.
+
+To view the logs in real-time, you can use the command:
+```bash
+tail -f logs/app_*.log
+```
+
+## Running the Application
+
+You can run the application in several ways:
+
+### 1. Using the Installation Script
+```bash
+bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh)
+```
+
+### 2. Direct Execution
+```bash
+python3 run.py
+```
+This new method provides a clean startup with prerequisite checks and proper error handling.
+
+### 3. As a Service
+For systems using systemd, you can create a service file:
+```bash
+sudo nano /etc/systemd/system/marz-limiter.service
+```
+
+Add the following content:
+```
+[Unit]
+Description=Marz Limiter Service
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/path/to/marz-limiter
+ExecStart=/usr/bin/python3 /path/to/marz-limiter/run.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then enable and start the service:
+```bash
+sudo systemctl enable marz-limiter.service
+sudo systemctl start marz-limiter.service
+```
+
+To view service logs:
+```bash
+sudo journalctl -u marz-limiter.service -f
+```
+
 ## Telegram Bot Commands
 
 V2IpLimit can be controlled via a Telegram bot. Here are the available commands:
