@@ -24,7 +24,7 @@ Supports both IPv4 and IPv6 And Marzban-node
 You can install V2IpLimit by running the following command in your terminal:
 
 ```bash
-bash <(curl -sSL https://houshmand-2005.github.io/v2iplimit.sh)
+bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh)
 ```
 
 After running the command, you will see a menu with the following options:
@@ -100,7 +100,7 @@ V2IpLimit can be controlled via a Telegram bot. Here are the available commands:
 6.  **Tunneling and User IP Detection**
 
     - Tunneling returns the tunnel server IP for users. Any solutions?
-    - Tunneling poses challenges. For better IP detection, consider alternative methods [Read More Here](https://github.com/houshmand-2005/V2IpLimit/issues/3)
+    - Tunneling poses challenges. For better IP detection, consider alternative methods [Read More Here](https://github.com/Arman2122/V2Limiter/issues/3)
 
 7.  **I'm using haproxy why I don't have logs**
 
@@ -117,10 +117,10 @@ V2IpLimit can be controlled via a Telegram bot. Here are the available commands:
       },
       ```
 
-    And also See this issue : [Read More Here](https://github.com/houshmand-2005/V2IpLimit/issues/32)
+    And also See this issue : [Read More Here](https://github.com/Arman2122/V2Limiter/issues/32)
 
-If you still have a problem you can open an issue on the [issues page](https://github.com/houshmand-2005/V2IpLimit/issues)<br>
-**And also you can still use the old version of this script** [here](https://github.com/houshmand-2005/V2IpLimit/tree/old_version)
+If you still have a problem you can open an issue on the [issues page](https://github.com/Arman2122/V2Limiter/issues)<br>
+**And also you can still use the old version of this script** [here](https://github.com/Arman2122/V2Limiter/tree/old_version)
 
 ## Using Cron Jobs
 
@@ -128,7 +128,7 @@ To ensure that _V2IpLimit_ runs regularly or automatically after a reboot, you c
 _Note:_ cronjob is **not recommended** for normal work, but if you need just make sure you put Telegram `BOT_TOKEN` and `ADMINS` in the `config.json` file. And also you can still check logs with
 
 ```bash
-bash <(curl -sSL https://houshmand-2005.github.io/v2iplimit.sh)
+bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh)
 ```
 
 and then choose `3. Attach to the script`<br>
@@ -142,22 +142,22 @@ crontab -e
 Add a new line to schedule script. For example:
 
 ```bash
-0 */6 * * * bash <(curl -sSL https://houshmand-2005.github.io/v2iplimit.sh) stop && bash <(curl -sSL https://houshmand-2005.github.io/v2iplimit.sh) start
+0 */6 * * * bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh) stop && bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh) start
 ```
 
 Or run at system reboot:
 
 ```bash
-@reboot bash <(curl -sSL https://houshmand-2005.github.io/v2iplimit.sh) start
+@reboot bash <(curl -sSL https://github.com/Arman2122/V2Limiter/raw/master/v2iplimit.sh) start
 ```
 
 You can learn more about cron job scheduling by checking the [Cron Howto](https://help.ubuntu.com/community/CronHowto) guide.
 
 ## Build
 
-V2IpLimit provides pre-built versions for Windows and Linux (both amd64 and arm64) which can be found on the [releases page](https://github.com/houshmand-2005/V2IpLimit/releases).
+V2IpLimit provides pre-built versions for Windows and Linux (both amd64 and arm64) which can be found on the [releases page](https://github.com/Arman2122/V2Limiter/releases).
 
-The Windows_amd64 and Linux_amd64 builds are created using GitHub Actions. You can check the build details on the [actions page](https://github.com/houshmand-2005/V2IpLimit/actions/).
+The Windows_amd64 and Linux_amd64 builds are created using GitHub Actions. You can check the build details on the [actions page](https://github.com/Arman2122/V2Limiter/actions/).
 
 The Linux_arm64 build is created on a local machine due to GitHub's lack of ARM machines and the build method's lack of support for Cross Compiling. However, you can build it on your own machine, or use GitHub Actions to build it on your own.<br>
 If you want to build V2IpLimit yourself, you'll first need to install the build essentials, which includes gcc, g++, and more. You can do this with the following command:
@@ -179,15 +179,15 @@ python3 -m nuitka --standalone --onefile --follow-imports --include-plugin-direc
 You can also use this program without building it. Just install the dependencies and run it normally:
 
 ```bash
-git clone https://github.com/houshmand-2005/V2IpLimit.git
-cd V2IpLimit
+git clone https://github.com/Arman2122/V2Limiter.git
+cd V2Limiter
 pip install -r requirements.txt
 python3 v2iplimit.py
 ```
 
 then like older version you can use `screen` and `cornjob` to run it in background.<sub>(And also don't forget to add your panel information and bot token and telegram user id to config.json file)</sub><br>
-[run with screen](https://github.com/houshmand-2005/V2IpLimit/blob/old_version/Marzban/README.md#screen)<br>
-[run with cornjob](https://github.com/houshmand-2005/V2IpLimit/blob/old_version/Marzban/README.md#screen)<br>
+[run with screen](https://github.com/Arman2122/V2Limiter/blob/old_version/Marzban/README.md#screen)<br>
+[run with cornjob](https://github.com/Arman2122/V2Limiter/blob/old_version/Marzban/README.md#screen)<br>
 
 <sub>
 And a small side note if you want to make any changes to the code and then test it, you can use the `core_test.py` file to test the core functions of the program.(Please note that running this make your panel unstable so make sure you run it on a test panel)

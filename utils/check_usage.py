@@ -43,7 +43,7 @@ async def check_ip_used() -> dict:
     ]
     logger.info("Number of all active ips: %s", str(total_ips))
     messages.append(f"---------\nCount Of All Active IPs: <b>{total_ips}</b>")
-    messages.append("<code>github.com/houshmand-2005/V2IpLimit/</code>")
+    messages.append("<code>github.com/Arman2122/V2Limiter/</code>")
     shorter_messages = [
         "\n".join(messages[i : i + 100]) for i in range(0, len(messages), 100)
     ]
