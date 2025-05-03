@@ -70,26 +70,33 @@ application = ApplicationBuilder().token(bot_token).build()
 
 
 START_MESSAGE = """
-✨<b>Commands List:</b>\n<b>/start</b> \n<code>start the bot</code>
-<b>/create_config</b>
-<code>Config panel information (username, password, ...)</code>
-<b>/set_special_limit</b>
-<code>set each user ip limit like: test_user limit: 5 ips</code>
-<b>/show_special_limit</b> \n<code>show special limit list</code>
-<b>/add_admin</b><code>
-Giving access to another chat ID and creating a new admin for the bot</code>
-<b>/admins_list</b>\n<code>Show the list of active bot admins</code>
-<b>/remove_admin</b>\n<code>An admin's access will be removed from this bot</code>
-<b>/country_code</b>\n<code>Set your country, Only IPs related to that country
-are counted (to increase accuracy)</code>
-<b>/set_except_user</b>\n<code>Set a user to except list</code>
-<b>/remove_except_user</b>\n<code>Remove a user from except list</code>
-<b>/show_except_users</b>\n<code>Show the list of except users</code>
-<b>/set_general_limit_number</b>\n<code>Set the general limit number
-(if user not in special limit list then this is they limit number)</code>
-<b>/set_check_interval</b>\n<code>Set the check interval time </code>
-<b>/set_time_to_active_users</b>\n<code>Set the time to active users</code>
-<b>/backup</b> \n<code>Sends 'config.json' file</code>"""
+🚀 <b>Welcome to Marz-Limiter Bot</b> 🚀
+
+📋 <b>COMMANDS:</b>
+
+🔹 <b>Setup Commands:</b>
+  • /start - <i>Start the bot and show all commands</i>
+  • /create_config - <i>Configure panel credentials</i>
+  • /country_code - <i>Set your country for better IP filtering</i>
+  • /set_general_limit_number - <i>Set default IP limit</i>
+  • /set_check_interval - <i>Set checking frequency</i>
+  • /set_time_to_active_users - <i>Set user reactivation time</i>
+
+🔹 <b>User Management:</b>
+  • /set_special_limit - <i>Set custom IP limits for specific users</i>
+  • /show_special_limit - <i>View all custom IP limits</i>
+  • /set_except_user - <i>Add user to exception list</i>
+  • /remove_except_user - <i>Remove user from exception list</i>
+  • /show_except_users - <i>View all excepted users</i>
+
+🔹 <b>Admin Controls:</b>
+  • /add_admin - <i>Grant admin access to another user</i>
+  • /admins_list - <i>View all bot administrators</i>
+  • /remove_admin - <i>Revoke admin access</i>
+  • /backup - <i>Download config backup file</i>
+
+⚙️ <b>For support:</b> @YourSupportUsername
+"""
 
 
 async def send_logs(msg):
@@ -114,12 +121,14 @@ async def add_admin(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         return check
     if len(await check_admin()) > 5:
         await update.message.reply_html(
-            text="You set more than '5' admins you need to delete one of them to add a new admin\n"
-            + "check your active admins with /admins_list\n"
-            + "you can delete with /remove_admin command"
+            text="⚠️ <b>Admin Limit Reached</b> ⚠️\n\n"
+            + "You've reached the maximum limit of 5 admins.\n"
+            + "Please remove an existing admin before adding a new one.\n\n"
+            + "📝 View current admins: /admins_list\n"
+            + "🗑️ Remove an admin: /remove_admin"
         )
         return ConversationHandler.END
-    await update.message.reply_html(text="Send chat id: ")
+    await update.message.reply_html(text="👤 <b>Add New Admin</b>\n\nPlease send the chat ID of the new admin:")
     return GET_CHAT_ID
 
 
@@ -131,16 +140,20 @@ async def get_chat_id(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     try:
         if await add_admin_to_config(new_admin_id):
             await update.message.reply_html(
-                text=f"Admin <code>{new_admin_id}</code> added successfully!"
+                text="✅ <b>Success!</b>\n\n"
+                + f"Admin <code>{new_admin_id}</code> has been added successfully.\n\n"
+                + "This user now has full administrative access to the bot."
             )
         else:
             await update.message.reply_html(
-                text=f"Admin <code>{new_admin_id}</code> already exists!"
+                text="ℹ️ <b>Already an Admin</b>\n\n"
+                + f"User <code>{new_admin_id}</code> is already an administrator."
             )
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/add_admin</b>"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid chat ID.\n"
+            + "Please try again with /add_admin"
         )
     return ConversationHandler.END
 
@@ -154,10 +167,18 @@ async def admins_list(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         return check
     admins = await check_admin()
     if admins:
-        admins_str = "\n- ".join(map(str, admins))
-        await update.message.reply_html(text=f"Admins: \n- {admins_str}")
+        admins_str = "\n".join([f"👤 <code>{admin}</code>" for admin in admins])
+        await update.message.reply_html(
+            text="📋 <b>Bot Administrators</b>\n\n"
+            + f"{admins_str}\n\n"
+            + "Total admins: " + str(len(admins))
+        )
     else:
-        await update.message.reply_html(text="No admins found!")
+        await update.message.reply_html(
+            text="⚠️ <b>No Admins Found</b>\n\n"
+            + "There are currently no registered administrators.\n"
+            + "Use /add_admin to add an administrator."
+        )
     return ConversationHandler.END
 
 
@@ -184,7 +205,9 @@ async def set_special_limit(update: Update, _context: ContextTypes.DEFAULT_TYPE)
     if check:
         return check
     await update.message.reply_html(
-        text="Please send the username. For example: <code>Test_User</code>"
+        text="🔢 <b>Set Special IP Limit</b>\n\n"
+        + "Please enter the <b>username</b> of the user you want to set a custom IP limit for.\n\n"
+        + "<i>Example:</i> <code>john_doe</code>"
     )
     return GET_SPECIAL_LIMIT
 
@@ -195,7 +218,10 @@ async def get_special_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     context.user_data["selected_user"] = update.message.text.strip()
     await update.message.reply_html(
-        text="Please send the Number of limit. For example: <code>4</code> or <code>2</code>"
+        text="👤 <b>Setting limit for:</b> "
+        + f"<code>{context.user_data['selected_user']}</code>\n\n"
+        + "Please enter the <b>maximum number</b> of IPs this user can connect from.\n\n"
+        + "<i>Example:</i> <code>3</code>"
     )
     return GET_LIMIT_NUMBER
 
@@ -208,21 +234,24 @@ async def get_limit_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["limit_number"] = int(update.message.text.strip())
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/set_special_limit</b>"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid number.\n"
+            + "Please try again with /set_special_limit"
         )
         return ConversationHandler.END
     out_put = await handel_special_limit(
         context.user_data["selected_user"], context.user_data["limit_number"]
     )
     if out_put[0]:
-        await update.message.reply_html(
-            text=f"<code>{context.user_data['selected_user']}</code> already has a"
-            + " special limit. Change it with new value"
-        )
+        update_text = "🔄 <b>Limit Updated</b>\n\n"
+    else:
+        update_text = "✅ <b>Limit Set Successfully</b>\n\n"
+        
     await update.message.reply_html(
-        text=f"Special limit for <code>{context.user_data['selected_user']}</code>"
-        + f" set to <code>{out_put[1]}</code> successfully!"
+        text=f"{update_text}"
+        + f"User: <code>{context.user_data['selected_user']}</code>\n"
+        + f"IP Limit: <code>{out_put[1]}</code>\n\n"
+        + "<i>This user will be disconnected if they exceed this limit.</i>"
     )
     return ConversationHandler.END
 
@@ -248,131 +277,168 @@ async def create_config(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         username = json_data.get("PANEL_USERNAME")
         password = json_data.get("PANEL_PASSWORD")
         if domain and username and password:
-            await update.message.reply_html(text="You set configuration before!")
             await update.message.reply_html(
-                text="After changing the configuration, you need to <b>restart</b> the bot.\n"
-                + "Only this command needs restart other commands <b>don't need it.</b>"
-            )
-            await update.message.reply_html(
-                text="<b>Current configuration:</b>\n"
-                + f"Domain: <code>{domain}</code>\n"
-                + f"Username: <code>{username}</code>\n"
-                + f"Password: <code>{password}</code>\n"
-                + "Do you want to change these settings? <code>(yes/no)</code>"
+                text="⚙️ <b>Panel Configuration</b>\n\n"
+                + f"Current settings:\n"
+                + f"• Domain: <code>{domain}</code>\n"
+                + f"• Username: <code>{username}</code>\n"
+                + f"• Password: <code>{'•' * 8}</code>\n\n"
+                + "Do you want to update these settings?\n"
+                + "Reply with <code>yes</code> to continue or <code>no</code> to cancel."
             )
             return GET_CONFIRMATION
+    # If config.json doesn't exist or doesn't have the required data
     await update.message.reply_html(
-        text="So now give me your <b>panel address!</b>\n"
-        + "Send The Domain or Ip with Port\n"
-        + "like: <code>sub.domain.com:8333</code> Or <code>95.12.153.87:443</code> \n"
-        + "<b>without</b> <code>https://</code> or <code>http://</code> or anything else",
+        text="⚙️ <b>Panel Configuration</b>\n\n"
+        + "Please enter your panel domain (without http/https):\n\n"
+        + "<i>Example:</i> <code>panel.example.com</code>"
     )
     return GET_DOMAIN
 
 
 async def get_confirmation(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     """
-    Get confirmation for change panel information.
+    Get user confirmation for changing the config file.
     """
-    if update.message.text.lower() in ["yes", "y"]:
+    response = update.message.text.strip().lower()
+    if response == "yes":
         await update.message.reply_html(
-            text="So now give me your <b>panel address!</b>\n"
-            + "Send The Domain or Ip with Port\n"
-            + "like: <code>sub.domain.com:8333</code> Or <code>95.12.153.87:443</code> \n"
-            + "<b>without</b> <code>https://</code> or <code>http://</code> or anything else",
+            text="🔄 <b>Updating Configuration</b>\n\n"
+            + "Please enter your panel domain (without http/https):\n\n"
+            + "<i>Example:</i> <code>panel.example.com</code> or <code>95.12.153.87:443</code>"
         )
         return GET_DOMAIN
+    if response == "no":
+        await update.message.reply_html(
+            text="✅ <b>Configuration Unchanged</b>\n\n"
+            + "Your current panel configuration has been kept.\n"
+            + "Use /start to see all available commands."
+        )
+        return ConversationHandler.END
     await update.message.reply_html(
-        text=f"<code>{update.message.text}</code> received.\n"
-        "Use <b>/create_config</b> when you change your mind."
+        text="❌ <b>Invalid Response</b>\n\n"
+        + "Please respond with either <code>yes</code> or <code>no</code>."
     )
-    return ConversationHandler.END
+    return GET_CONFIRMATION
 
 
 async def get_domain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Get panel domain form user"""
+    """
+    Get panel domain from the user for addition to the config file.
+    """
     context.user_data["domain"] = update.message.text.strip()
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Send Your Username: (For example: 'admin')",
+    await update.message.reply_html(
+        text="👤 <b>Panel Username</b>\n\n"
+        + "Please enter your panel username:\n\n"
+        + "<i>Example:</i> <code>admin</code>"
     )
     return GET_USERNAME
 
 
 async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Get panel username form user"""
+    """
+    Get panel username from the user for addition to the config file.
+    """
     context.user_data["username"] = update.message.text.strip()
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Send Your Password: (For example: 'admin1234')",
+    await update.message.reply_html(
+        text="🔒 <b>Panel Password</b>\n\n"
+        + "Please enter your panel password:\n\n"
+        + "<i>Your password will be stored securely.</i>"
     )
     return GET_PASSWORD
 
 
 async def get_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get panel password form user"""
-    context.user_data["password"] = update.message.text.strip()
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Please wait to check panel address, username and password...",
-    )
+    """
+    Get panel password from the user and update the config file with the provided details.
+    """
     try:
+        context.user_data["password"] = update.message.text.strip()
         await add_base_information(
             context.user_data["domain"],
             context.user_data["password"],
             context.user_data["username"],
         )
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id, text="Config saved successfully 🎊"
-        )
-    except ValueError:
         await update.message.reply_html(
-            text="<b>There is a problem with your information check them again!</b>"
-            + " (also make sure the panel is running)"
-            + "\n"
-            + f"Panel Address: <code>{context.user_data['domain']}</code>\n"
-            + f"Username: <code>{context.user_data['username']}</code>\n"
-            + f"Password: <code>{context.user_data['password']}</code>\n"
-            + "--------\n"
-            + "Try again /create_config",
+            text="✅ <b>Configuration Complete!</b>\n\n"
+            + "Your panel details have been successfully saved.\n\n"
+            + "<b>Details:</b>\n"
+            + f"• Domain: <code>{context.user_data['domain']}</code>\n"
+            + f"• Username: <code>{context.user_data['username']}</code>\n"
+            + f"• Password: <code>{'•' * 8}</code>\n\n"
+            + "⚠️ <b>Important:</b> Please restart the bot for changes to take effect."
         )
-
-    return ConversationHandler.END
+        return ConversationHandler.END
+    except ValueError as error:
+        await update.message.reply_html(
+            text="❌ <b>Connection Error</b>\n\n"
+            + f"<code>{error}</code>\n\n"
+            + "Please check your credentials and try again with /create_config"
+        )
+        return ConversationHandler.END
 
 
 async def remove_admin(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Removes a admin form admin list"""
+    """
+    Handles the process of removing an admin from the bot.
+    Checks if the user has admin privileges first.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    admins_count = len(await check_admin())
-    if admins_count == 1:
+    admins = await check_admin()
+    if admins:
+        admins_str = "\n".join([f"👤 <code>{admin}</code>" for admin in admins])
         await update.message.reply_html(
-            text="there is just <b>1</b> active admin remain."
-            + " <b>if you delete this chat id, then first person start bot "
-            + "is new admin</b> or <b>add admin chat id</b> in <code>config.json</code> file"
+            text="🗑️ <b>Remove Administrator</b>\n\n"
+            + "Current administrators:\n\n"
+            + f"{admins_str}\n\n"
+            + "Please enter the chat ID of the admin you want to remove:"
         )
-    await update.message.reply_html(text="Send chat id of the admin to remove: ")
-    return GET_CHAT_ID_TO_REMOVE
+        return GET_CHAT_ID_TO_REMOVE
+    await update.message.reply_html(
+        text="⚠️ <b>No Admins to Remove</b>\n\n"
+        + "There are currently no registered administrators.\n"
+        + "Use /add_admin to add an administrator."
+    )
+    return ConversationHandler.END
 
 
 async def get_chat_id_to_remove(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Get admin chat id to delete it form admin list"""
+    """
+    Removes an admin based on the provided chat ID.
+    """
     try:
-        admin_id_to_remove = int(update.message.text.strip())
+        admin_to_remove = int(update.message.text.strip())
+        admins = await check_admin()
+        if admin_to_remove == update.effective_chat.id:
+            await update.message.reply_html(
+                text="⚠️ <b>Cannot Remove Yourself</b>\n\n"
+                + "You cannot remove yourself as an administrator.\n"
+                + "Please ask another admin to remove you if needed."
+            )
+        elif len(admins) == 1 and admin_to_remove in admins:
+            await update.message.reply_html(
+                text="⚠️ <b>Cannot Remove Last Admin</b>\n\n"
+                + "You cannot remove the last administrator.\n"
+                + "Please add another admin first with /add_admin."
+            )
+        elif await remove_admin_from_config(admin_to_remove):
+            await update.message.reply_html(
+                text="✅ <b>Admin Removed</b>\n\n"
+                + f"Admin <code>{admin_to_remove}</code> has been removed successfully."
+            )
+        else:
+            await update.message.reply_html(
+                text="❌ <b>Admin Not Found</b>\n\n"
+                + f"<code>{admin_to_remove}</code> is not registered as an administrator.\n"
+                + "Please check the ID and try again."
+            )
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/remove_admin</b>"
-        )
-        return ConversationHandler.END
-    if await remove_admin_from_config(admin_id_to_remove):
-        await update.message.reply_html(
-            text=f"Admin <code>{admin_id_to_remove}</code> removed successfully!"
-        )
-    else:
-        await update.message.reply_html(
-            text=f"Admin <code>{admin_id_to_remove}</code> does not exist!"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid chat ID.\n"
+            + "Please try again with /remove_admin"
         )
     return ConversationHandler.END
 
@@ -380,150 +446,248 @@ async def get_chat_id_to_remove(update: Update, _context: ContextTypes.DEFAULT_T
 async def show_special_limit_function(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ):
-    """Show special limit list for all users."""
+    """
+    Displays the special limit list to the user.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    out_put = await get_special_limit_list()
-    if out_put:
-        for user in out_put:
-            await update.message.reply_html(text=user)
+    special_limit_list = await get_special_limit_list()
+    if special_limit_list:
+        await update.message.reply_html(
+            text="📊 <b>Special IP Limits</b>\n\n"
+            + "The following users have custom IP connection limits:"
+        )
+        for item in special_limit_list:
+            formatted_limits = "\n".join([
+                f"👤 <code>{username}</code>: <b>{limit} IPs</b>" 
+                for username, limit in [line.split(" : ") for line in item.split("\n")]
+            ])
+            await update.message.reply_html(
+                text=formatted_limits
+            )
     else:
-        await update.message.reply_html(text="No special limit found!")
+        await update.message.reply_html(
+            text="ℹ️ <b>No Special Limits</b>\n\n"
+            + "There are currently no users with special IP limits.\n"
+            + "Use /set_special_limit to create custom limits for users."
+        )
 
 
 async def set_country_code(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Set the country code for the bot."""
+    """
+    Starts the process of setting the country code.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
     await update.message.reply_html(
-        "1. <code>IR</code> (Iran)\n"
-        + "2. <code>RU</code> (Russia)\n"
-        + "3. <code>CN</code> (China)\n"
-        + "4. <code>None</code>, don't check the location\n"
-        + "<b>just send the number of the country code like: <code>2</code> or <code>1</code></b>"
+        text="🌎 <b>Set Country Code</b>\n\n"
+        + "Please enter your two-letter country code. Only IPs from this country will be counted.\n\n"
+        + "<i>Examples:</i>\n<code>US</code> - United States\n<code>GB</code> - United Kingdom\n"
+        + "<code>DE</code> - Germany\n<code>IR</code> - Iran\n<code>CN</code> - China"
     )
     return SET_COUNTRY_CODE
 
 
 async def write_country_code(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Write the country code to the config file."""
-    country_code = update.message.text.strip()
-    country_codes = {"1": "IR", "2": "RU", "3": "CN", "4": "None"}
-    selected_country = country_codes.get(country_code, "None")
+    """
+    Writes the provided country code to the configuration file.
+    """
+    country_code = update.message.text.strip().upper()
+    if len(country_code) != 2 or not country_code.isalpha():
+        await update.message.reply_html(
+            text="❌ <b>Invalid Country Code</b>\n\n"
+            + "Please enter a valid two-letter country code.\n"
+            + "Try again with /country_code"
+        )
+        return ConversationHandler.END
+        
+    await write_country_code_json(country_code)
     await update.message.reply_html(
-        f"Country code <code>{selected_country}</code> set successfully!"
+        text="✅ <b>Country Code Set</b>\n\n"
+        + f"Your country code has been set to <code>{country_code}</code>.\n"
+        + "The system will now only count IP connections from this country."
     )
-    await write_country_code_json(selected_country)
     return ConversationHandler.END
 
 
 async def send_backup(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Send the backup file to the user."""
+    """
+    Sends the config.json file as a backup.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    await update.message.reply_document(
-        document=open("config.json", "r", encoding="utf8"),  # pylint: disable=consider-using-with
-        caption="Here is the backup file!",
-    )
+    try:
+        await update.message.reply_html(
+            text="📤 <b>Sending Backup File</b>\n\n"
+            + "Preparing your configuration backup..."
+        )
+        await update.message.reply_document(
+            document=open("config.json", "rb"),
+            filename="config.json",
+            caption="✅ <b>Backup Complete</b>\n\nHere is your configuration backup file."
+        )
+    except FileNotFoundError:
+        await update.message.reply_html(
+            text="❌ <b>No Configuration Found</b>\n\n"
+            + "No configuration file exists to back up.\n"
+            + "Please set up your configuration with /create_config first."
+        )
 
 
 async def set_except_users(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Set the except users for the bot."""
+    """
+    Starts the process of adding a user to the exception list.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
     await update.message.reply_html(
-        "Send the except (<code>users in this list have no limitation</code>) user:"
+        text="👤 <b>Add Exception User</b>\n\n"
+        + "Please enter the username of the user you want to add to the exception list.\n"
+        + "Excepted users will not be disconnected regardless of how many IPs they use.\n\n"
+        + "<i>Example:</i> <code>admin_user</code>"
     )
     return SET_EXCEPT_USERS
 
 
 async def set_except_users_handler(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Write the except users to the config file."""
+    """
+    Adds the provided username to the exception list.
+    """
     except_user = update.message.text.strip()
-    await add_except_user(except_user)
-    await update.message.reply_html(
-        f"Except user <code>{except_user}</code> added successfully!"
-    )
+    result = await add_except_user(except_user)
+    if result:
+        await update.message.reply_html(
+            text="✅ <b>User Excepted</b>\n\n"
+            + f"User <code>{except_user}</code> has been added to the exception list.\n"
+            + "This user will not be disconnected regardless of IP count."
+        )
+    else:
+        await update.message.reply_html(
+            text="ℹ️ <b>Already Excepted</b>\n\n"
+            + f"User <code>{except_user}</code> is already in the exception list."
+        )
     return ConversationHandler.END
 
 
 async def remove_except_user(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """remove the except users for the bot."""
+    """
+    Starts the process of removing a user from the exception list.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    await update.message.reply_html("Send the except user to remove:")
+    await update.message.reply_html(
+        text="🔄 <b>Remove Exception User</b>\n\n"
+        + "Please enter the username of the user you want to remove from the exception list.\n\n"
+        + "<i>Example:</i> <code>admin_user</code>"
+    )
     return REMOVE_EXCEPT_USER
 
 
 async def remove_except_user_handler(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ):
-    """remove the except users from the config file."""
-    except_user = await remove_except_user_from_config(update.message.text.strip())
-    if except_user:
+    """
+    Removes the provided username from the exception list.
+    """
+    except_user = update.message.text.strip()
+    result = await remove_except_user_from_config(except_user)
+    if result:
         await update.message.reply_html(
-            f"Except user <code>{except_user}</code> removed successfully!"
+            text="✅ <b>User Removed from Exceptions</b>\n\n"
+            + f"User <code>{except_user}</code> has been removed from the exception list.\n"
+            + "This user will now be subject to IP limits."
         )
-
     else:
         await update.message.reply_html(
-            f"Except user <code>{except_user}</code> not found!"
+            text="❌ <b>User Not Found</b>\n\n"
+            + f"User <code>{except_user}</code> was not found in the exception list."
         )
     return ConversationHandler.END
 
 
 async def show_except_users(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Show the except users for the bot."""
+    """
+    Displays the list of users in the exception list.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    messages = await show_except_users_handler()
-    if messages:
-        for message in messages:
-            await update.message.reply_html(text=message)
+    except_users = await show_except_users_handler()
+    if except_users:
+        await update.message.reply_html(
+            text="📋 <b>Exception List</b>\n\n"
+            + "The following users are excepted from IP limits:"
+        )
+        for user_chunk in except_users:
+            formatted_users = "\n".join([f"👤 <code>{user}</code>" for user in user_chunk.split("\n")])
+            await update.message.reply_html(text=formatted_users)
     else:
-        await update.message.reply_html(text="No except user found!")
-    return ConversationHandler.END
+        await update.message.reply_html(
+            text="ℹ️ <b>No Excepted Users</b>\n\n"
+            + "There are currently no users in the exception list.\n"
+            + "Use /set_except_user to add users to the exception list."
+        )
 
 
 async def get_general_limit_number(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """Get the general limit number for the bot."""
+    """
+    Starts the process of setting the general IP limit number.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    await update.message.reply_text("Please send the general limit number:")
+    await update.message.reply_html(
+        text="🔢 <b>Set General IP Limit</b>\n\n"
+        + "Please enter the default maximum number of IPs a user can connect from.\n"
+        + "This limit applies to all users who don't have a special limit set.\n\n"
+        + "<i>Example:</i> <code>2</code>"
+    )
     return GET_GENERAL_LIMIT_NUMBER
 
 
 async def get_general_limit_number_handler(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ):
-    """Write the general limit number to the config file."""
+    """
+    Sets the general IP limit number based on the provided input.
+    """
     try:
         limit_number = int(update.message.text.strip())
+        if limit_number < 1:
+            raise ValueError("Limit must be at least 1")
+            
+        result = await save_general_limit(limit_number)
+        await update.message.reply_html(
+            text="✅ <b>General Limit Set</b>\n\n"
+            + f"The default IP limit has been set to <code>{result}</code>.\n"
+            + "Users will be disconnected if they exceed this number of connections."
+        )
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/set_general_limit_number</b>"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid number.\n"
+            + "Please try again with /set_general_limit_number"
         )
-        return ConversationHandler.END
-    await save_general_limit(limit_number)
-    await update.message.reply_text(f"General LIMIT_NUMBER set to {limit_number}")
     return ConversationHandler.END
 
 
 async def get_check_interval(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """get the 'check_interval' variable that handel how often the bot check the users"""
+    """
+    Starts the process of setting the check interval time.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    await update.message.reply_text(
-        "Please send the check interval time like 210 (its recommended to set it to 240 seconds)"
+    await update.message.reply_html(
+        text="⏱️ <b>Set Check Interval</b>\n\n"
+        + "Please enter how often (in seconds) the system should check for users exceeding their IP limits.\n\n"
+        + "<i>Recommended:</i> <code>60</code> (1 minute)\n"
+        + "<i>Example:</i> <code>30</code> (30 seconds)"
     )
     return GET_CHECK_INTERVAL
 
@@ -531,27 +695,45 @@ async def get_check_interval(update: Update, _context: ContextTypes.DEFAULT_TYPE
 async def get_check_interval_handler(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ):
-    """save the 'check_interval' variable"""
+    """
+    Sets the check interval based on the provided input.
+    """
     try:
-        check_interval = int(update.message.text.strip())
+        interval = int(update.message.text.strip())
+        if interval < 10:
+            await update.message.reply_html(
+                text="⚠️ <b>Interval Too Short</b>\n\n"
+                + "The check interval must be at least 10 seconds to avoid overloading the system.\n"
+                + "Please try again with a larger value."
+            )
+            return GET_CHECK_INTERVAL
+            
+        result = await save_check_interval(interval)
+        await update.message.reply_html(
+            text="✅ <b>Check Interval Set</b>\n\n"
+            + f"The system will now check user IP limits every <code>{result}</code> seconds."
+        )
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/set_check_interval</b>"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid number.\n"
+            + "Please try again with /set_check_interval"
         )
-        return ConversationHandler.END
-    await save_check_interval(check_interval)
-    await update.message.reply_text(f"CHECK_INTERVAL set to {check_interval}")
     return ConversationHandler.END
 
 
 async def get_time_to_active_users(update: Update, _context: ContextTypes.DEFAULT_TYPE):
-    """get the 'time_to_active' variable that handel how long user be not be active"""
+    """
+    Starts the process of setting the time to reactivate users.
+    """
     check = await check_admin_privilege(update)
     if check:
         return check
-    await update.message.reply_text(
-        "Please send the time to active users: like 600 (its in seconds)"
+    await update.message.reply_html(
+        text="⏳ <b>Set Reactivation Time</b>\n\n"
+        + "Please enter the time (in seconds) after which a disabled user will be automatically reactivated.\n\n"
+        + "<i>Recommended:</i> <code>300</code> (5 minutes)\n"
+        + "<i>Example:</i> <code>600</code> (10 minutes)"
     )
     return GET_TIME_TO_ACTIVE_USERS
 
@@ -559,19 +741,31 @@ async def get_time_to_active_users(update: Update, _context: ContextTypes.DEFAUL
 async def get_time_to_active_users_handler(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ):
-    """save the 'time_to_active' variable"""
+    """
+    Sets the time to reactivate users based on the provided input.
+    """
     try:
-        time_to_active_users = int(update.message.text.strip())
+        time_value = int(update.message.text.strip())
+        if time_value < 60:
+            await update.message.reply_html(
+                text="⚠️ <b>Time Too Short</b>\n\n"
+                + "The reactivation time must be at least 60 seconds.\n"
+                + "Please try again with a larger value."
+            )
+            return GET_TIME_TO_ACTIVE_USERS
+            
+        result = await save_time_to_active_users(time_value)
+        await update.message.reply_html(
+            text="✅ <b>Reactivation Time Set</b>\n\n"
+            + f"Disabled users will now be automatically reactivated after <code>{result}</code> seconds.\n"
+            + f"(<code>{result // 60}</code> minutes, <code>{result % 60}</code> seconds)"
+        )
     except ValueError:
         await update.message.reply_html(
-            text=f"Wrong input: <code>{update.message.text.strip()}"
-            + "</code>\ntry again <b>/set_time_to_active_users</b>"
+            text="❌ <b>Invalid Input</b>\n\n"
+            + f"<code>{update.message.text.strip()}</code> is not a valid number.\n"
+            + "Please try again with /set_time_to_active_users"
         )
-        return ConversationHandler.END
-    await save_time_to_active_users(time_to_active_users)
-    await update.message.reply_text(
-        f"TIME_TO_ACTIVE_USERS set to {time_to_active_users}"
-    )
     return ConversationHandler.END
 
 
