@@ -50,6 +50,48 @@ And after that you need input your panel information and other settings:
 
 After that script runs automatically and you can see the logs.
 
+## Configuration
+
+V2IpLimit uses a configuration file (`config.json`) to store settings. This file contains sensitive information such as your bot token and panel credentials, so it's added to `.gitignore` to prevent it from being accidentally shared.
+
+When you clone the repository, you'll find a `config.sample.json` file that you can use as a template. Copy this file to `config.json` and update it with your actual settings:
+
+```bash
+cp config.sample.json config.json
+```
+
+Then edit the `config.json` file with your information:
+
+```json
+{
+  "BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+  "ADMINS": [123456789],
+  "PANEL_DOMAIN": "your-domain.com:port",
+  "PANEL_USERNAME": "your_username",
+  "PANEL_PASSWORD": "your_password",
+  "CHECK_INTERVAL": 240,
+  "TIME_TO_ACTIVE_USERS": 1800,
+  "IP_LOCATION": "IR",
+  "GENERAL_LIMIT": 2,
+  "SPECIAL_LIMIT": {
+    "username1": 5,
+    "username2": 2
+  }
+}
+```
+
+### Configuration Parameters:
+
+- `BOT_TOKEN`: Your Telegram bot token obtained from BotFather
+- `ADMINS`: Array of Telegram user IDs who have administrative access to the bot
+- `PANEL_DOMAIN`: Your Marzban panel domain and port
+- `PANEL_USERNAME` and `PANEL_PASSWORD`: Credentials for your panel
+- `CHECK_INTERVAL`: Time interval for checking connections (in seconds)
+- `TIME_TO_ACTIVE_USERS`: Duration to consider users as active (in seconds)
+- `IP_LOCATION`: Your country code for IP geolocation filtering
+- `GENERAL_LIMIT`: Default IP limit for users not in the special limit list
+- `SPECIAL_LIMIT`: Object containing username-specific IP limits
+
 ## Telegram Bot Commands
 
 V2IpLimit can be controlled via a Telegram bot. Here are the available commands:

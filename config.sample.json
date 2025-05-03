@@ -1,0 +1,15 @@
+{
+  "BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+  "ADMINS": [123456789],
+  "PANEL_DOMAIN": "your-domain.com:port",
+  "PANEL_USERNAME": "your_username",
+  "PANEL_PASSWORD": "your_password",
+  "CHECK_INTERVAL": 240,
+  "TIME_TO_ACTIVE_USERS": 1800,
+  "IP_LOCATION": "IR",
+  "GENERAL_LIMIT": 2,
+  "SPECIAL_LIMIT": {
+    "username1": 5,
+    "username2": 2
+  }
+} 
