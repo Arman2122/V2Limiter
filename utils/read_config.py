@@ -57,4 +57,9 @@ async def read_config(
                 raise ValueError(
                     f"Missing required element '{element}' in the config file."
                 )
+        
+        # Set default value for ENABLE_IP_LOCATION_CHECK if it doesn't exist
+        if "ENABLE_IP_LOCATION_CHECK" not in CONFIG_DATA:
+            CONFIG_DATA["ENABLE_IP_LOCATION_CHECK"] = True
+            
     return CONFIG_DATA

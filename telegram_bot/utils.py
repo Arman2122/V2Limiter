@@ -214,6 +214,23 @@ async def write_country_code_json(country_code: str) -> None:
     await write_json_file(data)
 
 
+async def toggle_ip_location_check() -> tuple[bool, bool]:
+    """
+    Toggles the IP location check setting in the config.json file.
+    
+    Returns:
+        tuple: (success, new_value) - Whether the operation was successful and the new setting value
+    """
+    try:
+        data = await read_json_file()
+        current_value = data.get("ENABLE_IP_LOCATION_CHECK", True)
+        data["ENABLE_IP_LOCATION_CHECK"] = not current_value
+        await write_json_file(data)
+        return True, not current_value
+    except Exception:
+        return False, False
+
+
 async def add_except_user(except_user: str) -> str | None:
     """
     Add a user to the exception list in the config file.

@@ -12,6 +12,7 @@ from utils.logs import logger
 from utils.panel_api import disable_user
 from utils.read_config import read_config
 from utils.types import PanelType, UserType
+from utils.redis_utils import redis_client
 
 ACTIVE_USERS: dict[str, UserType] | dict = {}
 
@@ -118,6 +119,21 @@ async def check_users_usage(panel_data: PanelType):
                         logger.info(f"Disabling user {user_name} for exceeding IP limit")
                         await disable_user(panel_data, UserType(name=user_name, ip=[]))
                         disabled_count += 1
+                        
+                        # Remove from Redis when disabled
+                        try:
+                            # Make sure Redis client is initialized
+                            if not hasattr(redis_client, "_initialized") or not redis_client._initialized:
+                                await redis_client.initialize()
+                            
+                            # Remove all IPs for this service from Redis
+                            service_ips = await redis_client.get_service_ips(user_name)
+                            for ip in service_ips:
+                                await redis_client.remove_ip_from_service(user_name, ip)
+                            logger.debug(f"Removed {len(service_ips)} IPs for {user_name} from Redis")
+                        except Exception as e:
+                            logger.error(f"Error removing IPs from Redis: {e}")
+                            
                     except ValueError as error:
                         logger.error(f"Failed to disable user {user_name}: {error}")
         

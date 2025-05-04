@@ -10,6 +10,8 @@ import sys
 from utils.check_usage import ACTIVE_USERS
 from utils.read_config import read_config
 from utils.types import UserType
+from utils.redis_utils import redis_client
+from utils.logs import logger
 
 try:
     import httpx
@@ -140,13 +142,17 @@ async def parse_logs(log: str) -> dict[str, UserType] | dict:  # pylint: disable
         if ip not in VALID_IPS:
             is_valid_ip_test = await is_valid_ip(ip)
             if is_valid_ip_test and ip not in INVALID_IPS:
-                if data["IP_LOCATION"] != "None":
+                # Check if IP location check is enabled
+                if data.get("ENABLE_IP_LOCATION_CHECK", True) and data["IP_LOCATION"] != "None":
                     country = await check_ip(ip)
                     if country and country == data["IP_LOCATION"]:
                         VALID_IPS.append(ip)
                     elif country and country != data["IP_LOCATION"]:
                         INVALID_IPS.add(ip)
                         continue
+                else:
+                    # If IP location check is disabled, accept all valid IPs
+                    VALID_IPS.append(ip)
             else:
                 continue
         if email_match:
@@ -165,5 +171,17 @@ async def parse_logs(log: str) -> dict[str, UserType] | dict:  # pylint: disable
                 email,
                 UserType(name=email, ip=[ip]),
             )
+            
+        # Store in Redis
+        try:
+            # Make sure Redis client is initialized
+            if not hasattr(redis_client, "_initialized") or not redis_client._initialized:
+                await redis_client.initialize()
+            
+            # Add IP to Redis with the service name (user email)
+            await redis_client.add_ip_to_service(email, ip)
+        except Exception as e:
+            # Don't interrupt the main flow if Redis fails
+            logger.error(f"Error storing IP in Redis: {e}")
 
     return ACTIVE_USERS

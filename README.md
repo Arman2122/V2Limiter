@@ -72,6 +72,7 @@ Then edit the `config.json` file with your information:
   "CHECK_INTERVAL": 240,
   "TIME_TO_ACTIVE_USERS": 1800,
   "IP_LOCATION": "IR",
+  "ENABLE_IP_LOCATION_CHECK": true,
   "GENERAL_LIMIT": 2,
   "SPECIAL_LIMIT": {
     "username1": 5,
@@ -89,6 +90,7 @@ Then edit the `config.json` file with your information:
 - `CHECK_INTERVAL`: Time interval for checking connections (in seconds)
 - `TIME_TO_ACTIVE_USERS`: Duration to consider users as active (in seconds)
 - `IP_LOCATION`: Your country code for IP geolocation filtering
+- `ENABLE_IP_LOCATION_CHECK`: Toggle for IP location checking (when set to false, all valid IPs are accepted regardless of country)
 - `GENERAL_LIMIT`: Default IP limit for users not in the special limit list
 - `SPECIAL_LIMIT`: Object containing username-specific IP limits
 
@@ -176,6 +178,7 @@ V2IpLimit can be controlled via a Telegram bot. Here are the available commands:
 - `/admins_list`: Show the list of active bot admins.
 - `/remove_admin`: Remove an admin's access to the bot.
 - `/country_code`: Set your country. Only IPs related to that country are counted (to increase accuracy).
+- `/toggle_ip_location`: Enable or disable IP location checking. When disabled, all valid IPs will be counted regardless of country.
 - `/set_except_user`: Add a user to the exception list.
 - `/remove_except_user`: Remove a user from the exception list.
 - `/show_except_users`: Show the list of users in the exception list.

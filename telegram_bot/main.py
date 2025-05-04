@@ -41,10 +41,12 @@ from telegram_bot.utils import (
     save_general_limit,
     save_time_to_active_users,
     show_except_users_handler,
+    toggle_ip_location_check,
     write_country_code_json,
 )
 from utils.logs import logger
 from utils.read_config import read_config
+from api.token_utils import generate_and_save_token, get_token_from_config
 
 (
     GET_DOMAIN,
@@ -105,6 +107,9 @@ logger.info(f"Initializing application with {'valid token' if initial_token != '
 # Initialize the application with the token from config if available
 application = ApplicationBuilder().token(initial_token).build()
 
+# Initialize user data storage
+application.user_data = {}
+
 # We'll update the token when it's actually needed
 async def initialize_bot():
     """Initialize the bot with the correct token."""
@@ -116,9 +121,15 @@ async def initialize_bot():
         logger.info("Telegram bot already initialized with correct token")
         return
     
+    # Save existing user_data if any
+    existing_user_data = getattr(application, "user_data", {})
+    
     # Create a new application with the correct token
-    # Instead of trying to update the existing one
     application = ApplicationBuilder().token(token).build()
+    
+    # Restore user_data
+    application.user_data = existing_user_data
+    
     logger.info("Telegram bot initialized with token from config")
 
 
@@ -131,6 +142,7 @@ START_MESSAGE = """
   • /start - <i>Start the bot and show all commands</i>
   • /create_config - <i>Configure panel credentials</i>
   • /country_code - <i>Set your country for better IP filtering</i>
+  • /toggle_ip_location - <i>Enable/disable IP location checking</i>
   • /set_general_limit_number - <i>Set default IP limit</i>
   • /set_check_interval - <i>Set checking frequency</i>
   • /set_time_to_active_users - <i>Set user reactivation time</i>
@@ -147,6 +159,9 @@ START_MESSAGE = """
   • /admins_list - <i>View all bot administrators</i>
   • /remove_admin - <i>Revoke admin access</i>
   • /backup - <i>Download config backup file</i>
+
+🔹 <b>API Management:</b>
+  • /get_api_token - <i>View or generate API token</i>
 
 ⚙️ <b>For support:</b> @YourSupportUsername
 """
@@ -229,13 +244,17 @@ async def check_admin_privilege(update: Update):
     """
     admins = await check_admin()
     if not admins:
+        # If no admins exist, add the current user as the first admin
         await add_admin_to_config(update.effective_chat.id)
-    admins = await check_admin()
+        return None  # Return None to indicate success (user is now an admin)
+    
     if update.effective_chat.id not in admins:
         await update.message.reply_html(
             text="Sorry, you do not have permission to execute this command."
         )
         return ConversationHandler.END
+    
+    return None  # Return None to indicate success (user is an admin)
 
 
 async def set_special_limit(update: Update, _context: ContextTypes.DEFAULT_TYPE):
@@ -518,23 +537,69 @@ async def show_special_limit_function(
 async def set_country_code(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """
     Starts the process of setting the country code.
+    Shows the current country code when invoked.
     """
     check = await check_admin_privilege(update)
     if check:
         return check
+    
+    # Get current country code from config
+    current_code = "Not set"
+    if os.path.exists("config.json"):
+        data = await read_json_file()
+        current_code = data.get("IP_LOCATION", "Not set")
+    
     await update.message.reply_html(
         text="🌎 <b>Set Country Code</b>\n\n"
+        + f"<b>Current country code:</b> <code>{current_code}</code>\n\n"
         + "Please enter your two-letter country code. Only IPs from this country will be counted.\n\n"
         + "<i>Examples:</i>\n<code>US</code> - United States\n<code>GB</code> - United Kingdom\n"
-        + "<code>DE</code> - Germany\n<code>IR</code> - Iran\n<code>CN</code> - China"
+        + "<code>DE</code> - Germany\n<code>IR</code> - Iran\n<code>CN</code> - China\n\n"
+        + "Use /cancel to cancel this operation."
     )
     return SET_COUNTRY_CODE
+
+
+async def toggle_ip_location(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """
+    Toggles IP location checking on/off
+    """
+    check = await check_admin_privilege(update)
+    if check:
+        return check
+    
+    # Get current status from config
+    data = await read_json_file()
+    current_status = data.get("ENABLE_IP_LOCATION_CHECK", True)
+    status_text = "enabled" if current_status else "disabled"
+    new_status_text = "disable" if current_status else "enable"
+    
+    await update.message.reply_html(
+        text="🌐 <b>IP Location Check</b>\n\n"
+        + f"IP location checking is currently <b>{status_text}</b>.\n\n"
+        + (
+            "Only IPs from your configured country will be counted." 
+            if current_status else 
+            "All valid IPs are being counted regardless of their country location."
+        )
+        + f"\n\nDo you want to <b>{new_status_text}</b> IP location checking?\n"
+        + "Reply with <code>yes</code> to confirm or <code>no</code> to cancel."
+    )
+    
+    # Store context for confirmation handler
+    application.user_data[update.effective_chat.id] = {"waiting_for_ip_check_confirmation": True}
+    
+    return ConversationHandler.END
 
 
 async def write_country_code(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """
     Writes the provided country code to the configuration file.
     """
+    # Check if the user is trying to cancel
+    if update.message.text.strip().startswith('/cancel'):
+        return await cancel(update, _context)
+        
     country_code = update.message.text.strip().upper()
     if len(country_code) != 2 or not country_code.isalpha():
         await update.message.reply_html(
@@ -678,15 +743,25 @@ async def show_except_users(update: Update, _context: ContextTypes.DEFAULT_TYPE)
 async def get_general_limit_number(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """
     Starts the process of setting the general IP limit number.
+    Shows the current limit when invoked.
     """
     check = await check_admin_privilege(update)
     if check:
         return check
+    
+    # Get current limit from config
+    current_limit = "Not set"
+    if os.path.exists("config.json"):
+        data = await read_json_file()
+        current_limit = data.get("GENERAL_LIMIT", "Not set")
+    
     await update.message.reply_html(
         text="🔢 <b>Set General IP Limit</b>\n\n"
+        + f"<b>Current limit:</b> <code>{current_limit}</code>\n\n"
         + "Please enter the default maximum number of IPs a user can connect from.\n"
         + "This limit applies to all users who don't have a special limit set.\n\n"
-        + "<i>Example:</i> <code>2</code>"
+        + "<i>Example:</i> <code>2</code>\n\n"
+        + "Use /cancel to cancel this operation."
     )
     return GET_GENERAL_LIMIT_NUMBER
 
@@ -697,6 +772,10 @@ async def get_general_limit_number_handler(
     """
     Sets the general IP limit number based on the provided input.
     """
+    # Check if the user is trying to cancel
+    if update.message.text.strip().startswith('/cancel'):
+        return await cancel(update, _context)
+        
     try:
         limit_number = int(update.message.text.strip())
         if limit_number < 1:
@@ -720,15 +799,25 @@ async def get_general_limit_number_handler(
 async def get_check_interval(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """
     Starts the process of setting the check interval time.
+    Shows the current interval when invoked.
     """
     check = await check_admin_privilege(update)
     if check:
         return check
+    
+    # Get current interval from config
+    current_interval = "Not set"
+    if os.path.exists("config.json"):
+        data = await read_json_file()
+        current_interval = data.get("CHECK_INTERVAL", "Not set")
+    
     await update.message.reply_html(
         text="⏱️ <b>Set Check Interval</b>\n\n"
+        + f"<b>Current interval:</b> <code>{current_interval}</code> seconds\n\n"
         + "Please enter how often (in seconds) the system should check for users exceeding their IP limits.\n\n"
         + "<i>Recommended:</i> <code>60</code> (1 minute)\n"
-        + "<i>Example:</i> <code>30</code> (30 seconds)"
+        + "<i>Example:</i> <code>30</code> (30 seconds)\n\n"
+        + "Use /cancel to cancel this operation."
     )
     return GET_CHECK_INTERVAL
 
@@ -739,13 +828,18 @@ async def get_check_interval_handler(
     """
     Sets the check interval based on the provided input.
     """
+    # Check if the user is trying to cancel
+    if update.message.text.strip().startswith('/cancel'):
+        return await cancel(update, _context)
+        
     try:
         interval = int(update.message.text.strip())
         if interval < 10:
             await update.message.reply_html(
                 text="⚠️ <b>Interval Too Short</b>\n\n"
                 + "The check interval must be at least 10 seconds to avoid overloading the system.\n"
-                + "Please try again with a larger value."
+                + "Please try again with a larger value.\n\n"
+                + "Use /cancel to cancel this operation."
             )
             return GET_CHECK_INTERVAL
             
@@ -766,15 +860,25 @@ async def get_check_interval_handler(
 async def get_time_to_active_users(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     """
     Starts the process of setting the time to reactivate users.
+    Shows the current time when invoked.
     """
     check = await check_admin_privilege(update)
     if check:
         return check
+    
+    # Get current time from config
+    current_time = "Not set"
+    if os.path.exists("config.json"):
+        data = await read_json_file()
+        current_time = data.get("TIME_TO_ACTIVE_USERS", "Not set")
+    
     await update.message.reply_html(
         text="⏳ <b>Set Reactivation Time</b>\n\n"
+        + f"<b>Current time:</b> <code>{current_time}</code> seconds\n\n"
         + "Please enter the time (in seconds) after which a disabled user will be automatically reactivated.\n\n"
         + "<i>Recommended:</i> <code>300</code> (5 minutes)\n"
-        + "<i>Example:</i> <code>600</code> (10 minutes)"
+        + "<i>Example:</i> <code>600</code> (10 minutes)\n\n"
+        + "Use /cancel to cancel this operation."
     )
     return GET_TIME_TO_ACTIVE_USERS
 
@@ -785,13 +889,18 @@ async def get_time_to_active_users_handler(
     """
     Sets the time to reactivate users based on the provided input.
     """
+    # Check if the user is trying to cancel
+    if update.message.text.strip().startswith('/cancel'):
+        return await cancel(update, _context)
+        
     try:
         time_value = int(update.message.text.strip())
         if time_value < 60:
             await update.message.reply_html(
                 text="⚠️ <b>Time Too Short</b>\n\n"
                 + "The reactivation time must be at least 60 seconds.\n"
-                + "Please try again with a larger value."
+                + "Please try again with a larger value.\n\n"
+                + "Use /cancel to cancel this operation."
             )
             return GET_TIME_TO_ACTIVE_USERS
             
@@ -810,152 +919,273 @@ async def get_time_to_active_users_handler(
     return ConversationHandler.END
 
 
-application.add_handler(CommandHandler("start", start))
-application.add_handler(
-    ConversationHandler(
-        entry_points=[CommandHandler("create_config", create_config)],
-        states={
-            GET_CONFIRMATION: [MessageHandler(filters.TEXT, get_confirmation)],
-            GET_DOMAIN: [MessageHandler(filters.TEXT, get_domain)],
-            GET_USERNAME: [MessageHandler(filters.TEXT, get_username)],
-            GET_PASSWORD: [MessageHandler(filters.TEXT, get_password)],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("set_special_limit", set_special_limit),
-        ],
-        states={
-            GET_SPECIAL_LIMIT: [MessageHandler(filters.TEXT, get_special_limit)],
-            GET_LIMIT_NUMBER: [MessageHandler(filters.TEXT, get_limit_number)],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("set_time_to_active_users", get_time_to_active_users),
-        ],
-        states={
-            GET_TIME_TO_ACTIVE_USERS: [
-                MessageHandler(filters.TEXT, get_time_to_active_users_handler)
-            ],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("set_check_interval", get_check_interval),
-        ],
-        states={
-            GET_CHECK_INTERVAL: [
-                MessageHandler(filters.TEXT, get_check_interval_handler)
-            ],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("set_general_limit_number", get_general_limit_number),
-        ],
-        states={
-            GET_GENERAL_LIMIT_NUMBER: [
-                MessageHandler(filters.TEXT, get_general_limit_number_handler)
-            ],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("remove_except_user", remove_except_user),
-        ],
-        states={
-            REMOVE_EXCEPT_USER: [
-                MessageHandler(filters.TEXT, remove_except_user_handler)
-            ],
-        },
-        fallbacks=[],
-    )
-)
+async def get_api_token(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """
+    Get the current API token from the config file or generate a new one if it doesn't exist.
+    """
+    # Directly check if user is an admin without using check_admin_privilege
+    admins = await check_admin()
+    
+    # If there are no admins, add the current user
+    if not admins:
+        await add_admin_to_config(update.effective_chat.id)
+        admins = [update.effective_chat.id]  # Set admins with the current user
 
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("country_code", set_country_code),
-        ],
-        states={
-            SET_COUNTRY_CODE: [MessageHandler(filters.TEXT, write_country_code)],
-        },
-        fallbacks=[],
-    )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("set_except_user", set_except_users),
-        ],
-        states={
-            SET_EXCEPT_USERS: [MessageHandler(filters.TEXT, set_except_users_handler)],
-        },
-        fallbacks=[],
-    )
-)
+    # Check if the user is an admin
+    if update.effective_chat.id not in admins:
+        await update.message.reply_html(
+            text="Sorry, you do not have permission to execute this command."
+        )
+        return ConversationHandler.END
+    
+    # Get the token directly from config file
+    try:
+        # Try to read directly from config file
+        with open("config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+            token = config.get("API_TOKEN")
+        
+        if token:
+            await update.message.reply_html(
+                text="🔑 <b>API Token</b>\n\n"
+                + "<b>Current token:</b> <code>" + token + "</code>\n\n"
+                + "⚠️ <b>Important:</b> This token provides full access to your API. "
+                + "Use this token in the Authorization header with the Bearer scheme for API requests.\n\n"
+                + "To generate a new token, send /get_api_token again and select 'Generate New Token'."
+            )
+        else:
+            # Generate a new token if one doesn't exist
+            token = await generate_and_save_token()
+            if token:
+                await update.message.reply_html(
+                    text="✅ <b>API Token Generated</b>\n\n"
+                    + "A new API token has been generated and saved to the config file.\n\n"
+                    + "<b>Token:</b> <code>" + token + "</code>\n\n"
+                    + "⚠️ <b>Important:</b> Store this token securely. It provides "
+                    + "full access to your API. Use this token in the Authorization header "
+                    + "with the Bearer scheme for API requests."
+                )
+            else:
+                await update.message.reply_html(
+                    text="❌ <b>Error</b>\n\n"
+                    + "Failed to generate API token. Please check the logs for more information."
+                )
+    except Exception as e:
+        logger.error(f"Error in get_api_token: {e}")
+        await update.message.reply_html(
+            text="❌ <b>Error Reading Token</b>\n\n"
+            + "Could not read API token from config file. Please check if the file exists and is valid."
+        )
+    
+    return ConversationHandler.END
 
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("show_special_limit", show_special_limit_function),
-        ],
-        states={},
-        fallbacks=[],
+
+async def cancel(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    """
+    Cancel the current conversation.
+    """
+    await update.message.reply_html(
+        text="🛑 <b>Operation Cancelled</b>\n\n"
+        + "Current operation has been cancelled.\n"
+        + "Use /start to see all available commands."
     )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("add_admin", add_admin),
-        ],
-        states={
-            GET_CHAT_ID: [MessageHandler(filters.TEXT, get_chat_id)],
-        },
-        fallbacks=[],
+    return ConversationHandler.END
+
+
+async def handle_ip_check_confirmation(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle confirmation for toggling IP location checking
+    """
+    # Check if we're waiting for a confirmation
+    if (
+        not hasattr(application, "user_data") 
+        or update.effective_chat.id not in application.user_data
+        or not application.user_data[update.effective_chat.id].get("waiting_for_ip_check_confirmation")
+    ):
+        return
+    
+    # Reset waiting flag
+    application.user_data[update.effective_chat.id]["waiting_for_ip_check_confirmation"] = False
+    
+    response = update.message.text.strip().lower()
+    if response != "yes":
+        await update.message.reply_html(
+            text="🛑 <b>Operation Cancelled</b>\n\n"
+            + "IP location checking setting remains unchanged."
+        )
+        return
+    
+    # User confirmed, toggle the setting
+    success, new_value = await toggle_ip_location_check()
+    
+    if success:
+        status = "enabled" if new_value else "disabled"
+        await update.message.reply_html(
+            text=f"✅ <b>IP Location Check {status.capitalize()}</b>\n\n"
+            + f"IP location checking is now <b>{status}</b>.\n\n"
+            + (
+                "Only IPs from your configured country will be counted."
+                if new_value else
+                "All valid IPs will be counted regardless of their country location."
+            )
+        )
+    else:
+        await update.message.reply_html(
+            text="❌ <b>Error</b>\n\n"
+            + "Failed to toggle IP location checking setting.\n\n"
+            + "Please check the logs for more information."
+        )
+
+
+# Register handlers
+def register_handlers():
+    """
+    Register all handlers for the application.
+    """
+    # Start, Help, and Configuration Commands
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("admins_list", admins_list))
+    application.add_handler(CommandHandler("show_special_limit", show_special_limit_function))
+    application.add_handler(CommandHandler("show_except_users", show_except_users))
+    application.add_handler(CommandHandler("backup", send_backup))
+    application.add_handler(CommandHandler("get_api_token", get_api_token))
+    application.add_handler(CommandHandler("toggle_ip_location", toggle_ip_location))
+    
+    # Message handler for IP location check confirmation
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND & filters.Regex(r'^(yes|no)$'),
+            handle_ip_check_confirmation
+        )
     )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("remove_admin", remove_admin),
-        ],
-        states={
-            GET_CHAT_ID_TO_REMOVE: [
-                MessageHandler(filters.TEXT, get_chat_id_to_remove)
+    
+    # Add Admin Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("add_admin", add_admin),
             ],
-        },
-        fallbacks=[],
+            states={
+                GET_CHAT_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chat_id)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
     )
-)
-application.add_handler(
-    ConversationHandler(
-        entry_points=[
-            CommandHandler("backup", send_backup),
-        ],
-        states={},
-        fallbacks=[],
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("remove_admin", remove_admin),
+            ],
+            states={
+                GET_CHAT_ID_TO_REMOVE: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, get_chat_id_to_remove)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
     )
-)
-application.add_handler(CommandHandler("admins_list", admins_list))
-application.add_handler(CommandHandler("show_except_users", show_except_users))
-unknown_handler = MessageHandler(filters.TEXT, start)
-application.add_handler(unknown_handler)
-unknown_handler_command = MessageHandler(filters.COMMAND, start)
-application.add_handler(unknown_handler_command)
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("country_code", set_country_code),
+            ],
+            states={
+                SET_COUNTRY_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, write_country_code)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("set_except_user", set_except_users),
+            ],
+            states={
+                SET_EXCEPT_USERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_except_users_handler)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # Special Limit Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("set_special_limit", set_special_limit),
+            ],
+            states={
+                GET_SPECIAL_LIMIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_special_limit)],
+                GET_LIMIT_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_limit_number)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # Time to Active Users Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("set_time_to_active_users", get_time_to_active_users),
+            ],
+            states={
+                GET_TIME_TO_ACTIVE_USERS: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, get_time_to_active_users_handler)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # Check Interval Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("set_check_interval", get_check_interval),
+            ],
+            states={
+                GET_CHECK_INTERVAL: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, get_check_interval_handler)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # General Limit Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("set_general_limit_number", get_general_limit_number),
+            ],
+            states={
+                GET_GENERAL_LIMIT_NUMBER: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, get_general_limit_number_handler)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # Remove Exception Conversation
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CommandHandler("remove_except_user", remove_except_user),
+            ],
+            states={
+                REMOVE_EXCEPT_USER: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, remove_except_user_handler)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
+    )
+
+    # Unknown command handler
+    unknown_handler = MessageHandler(filters.TEXT, start)
+    application.add_handler(unknown_handler)
+    unknown_handler_command = MessageHandler(filters.COMMAND, start)
+    application.add_handler(unknown_handler_command)
+
+# Register handlers when the module is loaded
+register_handlers()

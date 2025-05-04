@@ -30,8 +30,10 @@ from utils.panel_api import (
 )
 from utils.read_config import read_config
 from utils.types import PanelType
+from utils.redis_utils import redis_client
+from api.server import run_api_server, download_swagger_ui_files
 
-VERSION = "1.0.6"
+VERSION = "1.0.7"  # Updated version number
 
 # Create banner
 def print_banner():
@@ -126,9 +128,31 @@ async def main():
         logger.info(f"Found {len(dis_users)} disabled users to re-enable")
     await enable_selected_users(panel_data, dis_users)
     
+    # Initialize Redis
+    logger.info("Initializing Redis connection...")
+    try:
+        await redis_client.initialize()
+        logger.info("Redis connection established successfully")
+    except Exception as e:
+        logger.error(f"Error initializing Redis: {e}")
+        await send_logs(f"⚠️ <b>Redis initialization error</b>\n\n<code>{str(e)}</code>")
+        logger.warning("Continuing without Redis functionality")
+    
     # Initialize nodes
     logger.info("Initializing node connections...")
     await get_nodes(panel_data)
+    
+    # Download Swagger UI files
+    logger.info("Setting up API server...")
+    try:
+        await download_swagger_ui_files()
+    except Exception as e:
+        logger.error(f"Error downloading Swagger UI files: {e}")
+        await send_logs(f"⚠️ <b>API initialization warning</b>\n\nFailed to download Swagger UI files: <code>{str(e)}</code>")
+    
+    # Start API server in a separate task
+    api_server_task = asyncio.create_task(run_api_server())
+    logger.info("API server task created")
     
     # Start all tasks
     logger.info("Starting all system tasks...")
@@ -179,7 +203,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Setup signal handlers for graceful shutdown
     setup_signal_handlers()
     
     # Main application loop
