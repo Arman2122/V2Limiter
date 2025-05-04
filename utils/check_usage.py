@@ -58,7 +58,6 @@ async def check_ip_used() -> dict:
     ]
     
     messages.append(f"---------\nCount Of All Active IPs: <b>{total_ips}</b>")
-    messages.append("<code>github.com/Arman2122/V2Limiter/</code>")
     
     # Split into chunks to avoid telegram message size limits
     shorter_messages = [

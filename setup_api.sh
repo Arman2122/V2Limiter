@@ -103,7 +103,6 @@ fi
 
 # Generate API token
 echo -e "${BOLD}Step 5: Generating API token${NC}"
-echo "Please use the Telegram bot command /generate_api_token to generate a token."
 echo "Once generated, the token will be automatically saved to config.json."
 
 echo -e "${BOLD}Step 6: Configuration Notes${NC}"

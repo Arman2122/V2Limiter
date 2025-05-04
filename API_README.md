@@ -61,14 +61,7 @@ sudo systemctl start redis-server
 
 Update your `config.json` with the new settings or use the sample config as a template.
 
-### 3. Generate API Token
-
-Use the Telegram bot command:
-```
-/generate_api_token
-```
-
-### 4. Setup NGINX (for production)
+### 3. Setup NGINX (for production)
 
 ```bash
 sudo cp nginx/marz-limiter-api.conf /etc/nginx/sites-available/
@@ -86,7 +79,6 @@ sudo ./setup_api.sh
 
 Two new commands have been added to the Telegram bot:
 
-- `/generate_api_token`: Generate a new API token
 - `/get_api_token`: View the current API token
 
 ## Using the API

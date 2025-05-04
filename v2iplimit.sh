@@ -1,4 +1,5 @@
 #!/bin/bash
+[ "$(uname)" = "Linux" ] && sed -i 's/\r$//' "$0"
 
 # Terminal colors
 RED='\033[0;31m'
@@ -18,6 +19,7 @@ show_banner() {
     echo "│                                          │"
     echo "│             V2IP LIMITER                 │"
     echo "│       Advanced Installation Script       │"
+    echo "│               V 1.0.7                    │"
     echo "│                                          │"
     echo "└──────────────────────────────────────────┘"
     echo -e "${NC}"
@@ -216,9 +218,23 @@ setup_systemd() {
         return 1
     fi
     
-    # Get absolute path to repository
-    local current_dir=$(pwd)
-    local abs_repo_path="${current_dir}/V2Limiter"
+
+    local script_path=$(readlink -f "$0")
+    local script_dir=$(dirname "$script_path")
+    
+    if [[ "$script_dir" == *"/V2Limiter"* ]]; then
+        local abs_repo_path=$(echo "$script_dir" | sed 's|\(.*V2Limiter\).*|\1|')
+    elif [[ -d "$script_dir/V2Limiter" ]]; then
+        local abs_repo_path="$script_dir/V2Limiter"
+    else
+        local abs_repo_path="$script_dir"
+    fi
+    
+    if [[ ! -f "$abs_repo_path/run.py" ]]; then
+        echo -e "${YELLOW}Warning: Could not find run.py in $abs_repo_path${NC}"
+        echo -e "${YELLOW}Using current directory as fallback${NC}"
+        local abs_repo_path=$(pwd)
+    fi
     
     # Create systemd service file
     cat > /etc/systemd/system/v2iplimit.service << EOF
@@ -231,7 +247,7 @@ Wants=redis.service
 Type=simple
 User=root
 WorkingDirectory=${abs_repo_path}
-ExecStart=/usr/bin/python3 ${abs_repo_path}/main.py
+ExecStart=/usr/bin/python3 ${abs_repo_path}/run.py
 Restart=on-failure
 RestartSec=10
 KillSignal=SIGINT

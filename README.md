@@ -302,22 +302,12 @@ pip install -r requirements.txt
 python3 v2iplimit.py
 ```
 
-then like older version you can use `screen` and `cornjob` to run it in background.<sub>(And also don't forget to add your panel information and bot token and telegram user id to config.json file)</sub><br>
-[run with screen](https://github.com/Arman2122/V2Limiter/blob/old_version/Marzban/README.md#screen)<br>
-[run with cornjob](https://github.com/Arman2122/V2Limiter/blob/old_version/Marzban/README.md#screen)<br>
-
 <sub>
 And a small side note if you want to make any changes to the code and then test it, you can use the `core_test.py` file to test the core functions of the program.(Please note that running this make your panel unstable so make sure you run it on a test panel)
 </sub>
 
 <hr>
 
-## Donations
+## Support the Project
 
-If you found V2IpLimit useful and would like to support its development, you can donate on the following crypto network:
-
-- TRON network (TRX): `TLARb1Ns5vA7pH6wqSyZGreDbGooS85Mi5`
-
-Thank you for your support!
-
-If this program was useful for you, please give it a star ⭐
+If you've found V2IpLimit valuable for your operations, please consider showing your support by giving the project a star ⭐ on GitHub. Your endorsement helps increase visibility and encourages continued development and maintenance of this tool.

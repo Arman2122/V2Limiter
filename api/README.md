@@ -99,9 +99,6 @@ Returns all connected IPs for all services.
 
 To generate an API token, use the Telegram bot command:
 
-```
-/generate_api_token
-```
 
 To view the current API token:
 

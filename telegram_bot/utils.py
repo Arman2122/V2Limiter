@@ -6,6 +6,7 @@ managing admin IDs, and handling special limits for users and more...
 import json
 import os
 import sys
+import socket
 
 from utils.types import PanelType
 
@@ -327,3 +328,63 @@ async def save_time_to_active_users(time: int) -> int:
     data = {"TIME_TO_ACTIVE_USERS": time}
     await write_json_file(data)
     return time
+
+
+async def get_api_documentation_url() -> str:
+    """
+    Gets the API documentation URL from the config.
+    If API_DOMAIN is empty, it uses the server's IP address.
+
+    Returns:
+        str: The URL to access the API documentation.
+    """
+    if os.path.exists("config.json"):
+        data = await read_json_file()
+        api_domain = data.get("API_DOMAIN", "")
+        api_port = data.get("SWAGGER_PORT", data.get("API_PORT", 8085))
+        
+        # If API_DOMAIN is empty, get the actual external IP address
+        if not api_domain:
+            try:
+                # Try to get the actual IP by making a socket connection to a public server
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                # No need to actually send data, just connect
+                s.connect(("8.8.8.8", 80))
+                api_domain = s.getsockname()[0]  # Get the local IP address
+                s.close()
+            except Exception:
+                # Fallback to hostname method if the above fails
+                hostname = socket.gethostname()
+                api_domain = socket.gethostbyname(hostname)
+        
+        # Construct the API documentation URL
+        return f"http://{api_domain}:{api_port}/docs"
+    
+    # Default URL if config doesn't exist
+    return "API documentation URL not available (config.json not found)"
+
+
+async def toggle_notifications():
+    """
+    Toggle notification settings in the config file.
+    
+    Returns:
+        bool: The new notification state (True if enabled, False if disabled)
+    """
+    config_file = "config.json"
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        
+        # Toggle the notifications setting
+        current_state = config.get("SEND_NOTIFICATIONS", True)
+        config["SEND_NOTIFICATIONS"] = not current_state
+        
+        # Save the updated config
+        with open(config_file, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=4)
+        
+        return not current_state  # Return the new state
+    except Exception as e:
+        logger.error(f"Error toggling notifications: {e}")
+        raise

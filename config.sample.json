@@ -13,6 +13,7 @@
     "username1": 5,
     "username2": 2
   },
+  "SEND_NOTIFICATIONS": true,
   "API_TOKEN": "",
   "API_PORT": 8080,
   "SWAGGER_PORT": 8080,

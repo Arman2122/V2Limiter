@@ -32,6 +32,7 @@ from telegram_bot.utils import (
     add_base_information,
     add_except_user,
     check_admin,
+    get_api_documentation_url,
     get_special_limit_list,
     handel_special_limit,
     read_json_file,
@@ -42,6 +43,7 @@ from telegram_bot.utils import (
     save_time_to_active_users,
     show_except_users_handler,
     toggle_ip_location_check,
+    toggle_notifications,
     write_country_code_json,
 )
 from utils.logs import logger
@@ -143,6 +145,7 @@ START_MESSAGE = """
   • /create_config - <i>Configure panel credentials</i>
   • /country_code - <i>Set your country for better IP filtering</i>
   • /toggle_ip_location - <i>Enable/disable IP location checking</i>
+  • /toggle_notifications - <i>Enable/disable Telegram notifications</i>
   • /set_general_limit_number - <i>Set default IP limit</i>
   • /set_check_interval - <i>Set checking frequency</i>
   • /set_time_to_active_users - <i>Set user reactivation time</i>
@@ -162,8 +165,10 @@ START_MESSAGE = """
 
 🔹 <b>API Management:</b>
   • /get_api_token - <i>View or generate API token</i>
+  • /get_api_docs - <i>Get API documentation URL</i>
 
-⚙️ <b>For support:</b> @YourSupportUsername
+⚙️ <b>For support:</b> @Vpn404Support
+
 """
 
 
@@ -950,8 +955,7 @@ async def get_api_token(update: Update, _context: ContextTypes.DEFAULT_TYPE):
                 text="🔑 <b>API Token</b>\n\n"
                 + "<b>Current token:</b> <code>" + token + "</code>\n\n"
                 + "⚠️ <b>Important:</b> This token provides full access to your API. "
-                + "Use this token in the Authorization header with the Bearer scheme for API requests.\n\n"
-                + "To generate a new token, send /get_api_token again and select 'Generate New Token'."
+                + "Use this token in the Authorization header with the Bearer scheme for API requests."
             )
         else:
             # Generate a new token if one doesn't exist
@@ -977,6 +981,26 @@ async def get_api_token(update: Update, _context: ContextTypes.DEFAULT_TYPE):
             + "Could not read API token from config file. Please check if the file exists and is valid."
         )
     
+    return ConversationHandler.END
+
+
+async def get_api_docs(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """
+    Get the API documentation URL.
+    Checks if the user has admin privileges first.
+    """
+    check = await check_admin_privilege(update)
+    if check:
+        return check
+    
+    api_docs_url = await get_api_documentation_url()
+    
+    await update.message.reply_html(
+        text=f"🔗 <b>API Documentation URL</b>\n\n"
+             f"You can access the API documentation at:\n"
+             f"<code>{api_docs_url}</code>\n\n"
+             f"This URL provides interactive documentation for all API endpoints."
+    )
     return ConversationHandler.END
 
 
@@ -1037,28 +1061,55 @@ async def handle_ip_check_confirmation(update: Update, _context: ContextTypes.DE
         )
 
 
+async def toggle_notifications_cmd(update: Update, _context: ContextTypes.DEFAULT_TYPE):
+    """
+    Toggles the notifications on/off in the config file.
+    """
+    check = await check_admin_privilege(update)
+    if check:
+        return check
+    
+    try:
+        new_state = await toggle_notifications()
+        status_text = "enabled" if new_state else "disabled"
+        status_emoji = "✅" if new_state else "🔕"
+        
+        await update.message.reply_html(
+            text=f"{status_emoji} <b>Notifications {status_text}</b>\n\n"
+            + f"All Telegram notifications are now {status_text}.\n"
+            + f"You {'will' if new_state else 'will not'} receive usage reports and alerts."
+        )
+    except Exception as e:
+        await update.message.reply_html(
+            text="❌ <b>Error</b>\n\n"
+            + f"Failed to toggle notifications: {e}"
+        )
+    
+    return ConversationHandler.END
+
+
 # Register handlers
 def register_handlers():
     """
-    Register all handlers for the application.
+    Registers all command handlers for the bot.
     """
-    # Start, Help, and Configuration Commands
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("admins_list", admins_list))
     application.add_handler(CommandHandler("show_special_limit", show_special_limit_function))
+    application.add_handler(CommandHandler("toggle_ip_location", toggle_ip_location))
+    application.add_handler(CommandHandler("toggle_notifications", toggle_notifications_cmd))
     application.add_handler(CommandHandler("show_except_users", show_except_users))
     application.add_handler(CommandHandler("backup", send_backup))
+    application.add_handler(CommandHandler("get_api_docs", get_api_docs))
     application.add_handler(CommandHandler("get_api_token", get_api_token))
-    application.add_handler(CommandHandler("toggle_ip_location", toggle_ip_location))
     
     # Message handler for IP location check confirmation
     application.add_handler(
         MessageHandler(
-            filters.TEXT & ~filters.COMMAND & filters.Regex(r'^(yes|no)$'),
-            handle_ip_check_confirmation
+            filters.Regex(r"^(Yes|No)$"), handle_ip_check_confirmation
         )
     )
-    
+
     # Add Admin Conversation
     application.add_handler(
         ConversationHandler(

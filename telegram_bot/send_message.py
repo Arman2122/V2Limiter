@@ -9,6 +9,7 @@ import traceback
 # from telegram_bot.main import application
 from telegram_bot.utils import check_admin
 from utils.logs import logger
+from utils.read_config import read_config
 
 # We'll get the application instance through a function instead
 def get_application():
@@ -24,6 +25,14 @@ async def send_logs(msg):
     Args:
         msg (str): The message to send to admins
     """
+    # Check if notifications are enabled
+    config_data = await read_config()
+    send_notifications = config_data.get("SEND_NOTIFICATIONS", True)
+    
+    if not send_notifications:
+        logger.info("Notifications are disabled in config. Message not sent.")
+        return
+        
     admins = await check_admin()
     retries = 3
     retry_delay = 2  # seconds
