@@ -7,14 +7,38 @@ import json
 import os
 import sys
 import socket
+import asyncio
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Union, Tuple
 
 from utils.types import PanelType
+import aiohttp
+import traceback
 
 try:
     import httpx
 except ImportError:
     print("Module 'httpx' is not installed use: 'pip install httpx' to install it")
     sys.exit()
+
+try:
+    from utils.special_limits_sync import sync_special_limits_to_redis
+    from utils.except_users_sync import sync_except_users_to_redis
+except ImportError:
+    # For standalone mode or when importing is not available
+    sync_special_limits_to_redis = None
+    sync_except_users_to_redis = None
+
+# Remove circular import
+# from telegram_bot.send_message import set_extra_context
+from utils.logs import logger
+
+# Function to get send_message module functions safely
+def get_send_message_functions():
+    """Get send_message functions lazily to avoid circular imports."""
+    from telegram_bot.send_message import set_extra_context
+    return set_extra_context
 
 
 async def get_token(panel_data: PanelType) -> PanelType | ValueError:
@@ -124,24 +148,56 @@ async def handel_special_limit(username: str, limit: int) -> list:
         special_limit[username] = limit
         data["SPECIAL_LIMIT"] = special_limit
         await write_json_file(data)
+        
+        # Sync with Redis after updating config
+        if sync_special_limits_to_redis:
+            try:
+                await sync_special_limits_to_redis()
+                logger.info(f"Successfully synced special limit for {username} to Redis")
+            except Exception as e:
+                logger.error(f"Failed to sync special limit for {username} to Redis: {e}")
+        
         return [set_before, special_limit[username]]
+    
     data = {"SPECIAL_LIMIT": {username: limit}}
     await write_json_file(data)
-    return [0, special_limit[username]]
+    
+    # Sync with Redis after updating config
+    if sync_special_limits_to_redis:
+        try:
+            await sync_special_limits_to_redis()
+            logger.info(f"Successfully synced special limit for {username} to Redis")
+        except Exception as e:
+            logger.error(f"Failed to sync special limit for {username} to Redis: {e}")
+    
+    return [0, limit]
 
 
-async def remove_admin_from_config(admin_id: int) -> bool:
+async def remove_admin_from_config(admin_id: int, requester_id: int = None) -> bool:
     """
     Removes an admin from the configuration.
 
     Args:
         admin_id (int): The ID of the admin to be removed.
+        requester_id (int, optional): The ID of the admin making the request. 
+                                     Used to prevent admins from removing themselves.
 
     Returns:
         bool: True if the admin was successfully removed, False otherwise.
     """
+    # Protection against self-removal
+    if requester_id is not None and admin_id == requester_id:
+        logger.warning(f"Admin {requester_id} attempted to remove themselves. Action prevented.")
+        return False
+        
     data = await read_json_file()
     admins = data.get("ADMINS", [])
+    
+    # Check if this would remove the last admin
+    if len(admins) <= 1 and admin_id in admins:
+        logger.warning(f"Cannot remove the last admin (ID: {admin_id})")
+        return False
+        
     if admin_id in admins:
         admins.remove(admin_id)
         data["ADMINS"] = admins
@@ -244,10 +300,28 @@ async def add_except_user(except_user: str) -> str | None:
             user.append(except_user)
             data["EXCEPT_USERS"] = user
             await write_json_file(data)
+            
+            # Sync with Redis after updating config
+            if sync_except_users_to_redis:
+                try:
+                    await sync_except_users_to_redis()
+                    logger.info(f"Successfully synced except user {except_user} to Redis")
+                except Exception as e:
+                    logger.error(f"Failed to sync except user {except_user} to Redis: {e}")
+            
             return except_user
     else:
         data = {"EXCEPT_USERS": [except_user]}
         await write_json_file(data)
+        
+        # Sync with Redis after updating config
+        if sync_except_users_to_redis:
+            try:
+                await sync_except_users_to_redis()
+                logger.info(f"Successfully synced except user {except_user} to Redis")
+            except Exception as e:
+                logger.error(f"Failed to sync except user {except_user} to Redis: {e}")
+        
         return except_user
     return None
 
@@ -281,6 +355,15 @@ async def remove_except_user_from_config(user: str) -> str | None:
         except_user.remove(user)
         data["EXCEPT_USERS"] = except_user
         await write_json_file(data)
+        
+        # Sync with Redis after updating config
+        if sync_except_users_to_redis:
+            try:
+                await sync_except_users_to_redis()
+                logger.info(f"Successfully synced removal of except user {user} to Redis")
+            except Exception as e:
+                logger.error(f"Failed to sync removal of except user {user} to Redis: {e}")
+        
         return user
     return None
 

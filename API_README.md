@@ -23,10 +23,151 @@ Redis is used to efficiently store and retrieve IP address information for each 
 
 ## API Endpoints
 
-The API provides the following endpoints:
+### Authentication
 
-- `GET /api/status`: Check API status
-- `GET /api/connected-ips`: Get all connected IPs with service names and timestamps (requires authentication)
+All requests to the API must include an authorization token in the request header:
+
+```
+Authorization: Bearer YOUR_API_TOKEN
+```
+
+### Available Endpoints
+
+#### Status Check
+
+- **GET /api/status**
+  - Description: Get API status
+  - Authentication: None (public)
+  - Response: `{"status": "active", "version": "1.0.0"}`
+
+#### Connected IPs
+
+- **GET /api/connected-ips**
+  - Description: Get all connected IPs for all services
+  - Authentication: Required
+  - Response: 
+    ```json
+    {
+      "services": {
+        "service1": ["1.2.3.4", "5.6.7.8"],
+        "service2": ["9.10.11.12"]
+      },
+      "last_update": 1642348800,
+      "check_interval": 240
+    }
+    ```
+
+#### Special Limits
+
+- **GET /api/special-limits**
+  - Description: Get all special limits
+  - Authentication: Required
+  - Response:
+    ```json
+    {
+      "limits": {
+        "username1": 5,
+        "username2": 2
+      }
+    }
+    ```
+
+- **POST /api/special-limits**
+  - Description: Add or update a special limit for a user
+  - Authentication: Required
+  - Request Body:
+    ```json
+    {
+      "username": "username1",
+      "limit": 5
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "message": "Special limit for username1 set to 5"
+    }
+    ```
+
+- **DELETE /api/special-limits**
+  - Description: Remove a special limit for a user
+  - Authentication: Required
+  - Request Body:
+    ```json
+    {
+      "username": "username1"
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "message": "Special limit for username1 removed"
+    }
+    ```
+
+#### Except Users
+
+- **GET /api/except-users**
+  - Description: Get all except users
+  - Authentication: Required
+  - Response:
+    ```json
+    {
+      "users": ["username1", "username2"]
+    }
+    ```
+
+- **POST /api/except-users**
+  - Description: Add a user to the exception list
+  - Authentication: Required
+  - Request Body:
+    ```json
+    {
+      "username": "username1"
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "message": "User username1 added to exceptions"
+    }
+    ```
+
+- **DELETE /api/except-users**
+  - Description: Remove a user from the exception list
+  - Authentication: Required
+  - Request Body:
+    ```json
+    {
+      "username": "username1"
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "message": "User username1 removed from exceptions"
+    }
+    ```
+
+## Error Handling
+
+All API errors are returned with appropriate HTTP status codes and a JSON response with the following format:
+
+```json
+{
+  "detail": "Error message"
+}
+```
+
+Common error codes:
+- 400: Bad Request (invalid parameters)
+- 401: Unauthorized (invalid or missing token)
+- 404: Not Found (resource not found)
+- 500: Internal Server Error
 
 ## Configuration
 

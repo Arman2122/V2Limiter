@@ -10,6 +10,8 @@ from typing import Optional
 
 from utils.logs import logger
 from api.main import app, get_api_host_and_port
+from utils.special_limits_sync import sync_special_limits_to_redis
+from utils.except_users_sync import sync_except_users_to_redis
 
 
 async def run_api_server():
@@ -17,6 +19,14 @@ async def run_api_server():
     Run the API server.
     """
     try:
+        # Initialize special limits in Redis
+        logger.info("Syncing special limits to Redis...")
+        await sync_special_limits_to_redis()
+        
+        # Initialize except users in Redis
+        logger.info("Syncing except users to Redis...")
+        await sync_except_users_to_redis()
+        
         # Get API host and port
         host, port, swagger_port = await get_api_host_and_port()
         

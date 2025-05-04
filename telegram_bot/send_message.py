@@ -7,15 +7,32 @@ import traceback
 
 # Remove direct import that causes circular dependency
 # from telegram_bot.main import application
-from telegram_bot.utils import check_admin
+# from telegram_bot.utils import check_admin
 from utils.logs import logger
 from utils.read_config import read_config
 
-# We'll get the application instance through a function instead
+# We'll get the application instance lazily to avoid circular imports
 def get_application():
     """Get the application instance lazily to avoid circular imports."""
     from telegram_bot.main import application
     return application
+
+# Get check_admin function lazily to avoid circular imports
+def get_check_admin():
+    """Get the check_admin function lazily to avoid circular imports."""
+    from telegram_bot.utils import check_admin
+    return check_admin
+
+# This variable is set by telegram_bot.main on initialization
+_extra_context = None
+
+def set_extra_context(context):
+    """
+    Set extra context for logging to properly handle messages.
+    This is called from telegram_bot.main
+    """
+    global _extra_context
+    _extra_context = context
 
 
 async def send_logs(msg):
@@ -32,7 +49,9 @@ async def send_logs(msg):
     if not send_notifications:
         logger.info("Notifications are disabled in config. Message not sent.")
         return
-        
+    
+    # Get check_admin function lazily
+    check_admin = get_check_admin()
     admins = await check_admin()
     retries = 3
     retry_delay = 2  # seconds

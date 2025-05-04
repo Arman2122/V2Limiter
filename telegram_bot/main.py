@@ -133,6 +133,16 @@ async def initialize_bot():
     application.user_data = existing_user_data
     
     logger.info("Telegram bot initialized with token from config")
+    
+    # Safely set extra context if needed
+    try:
+        from telegram_bot.utils import get_send_message_functions
+        set_extra_context_fn = get_send_message_functions()
+        set_extra_context_fn(application)
+        logger.info("Extra context initialized for send_message module")
+    except Exception as e:
+        logger.warning(f"Could not set extra context: {e}")
+        # This is not critical, so we can continue
 
 
 START_MESSAGE = """
@@ -476,7 +486,9 @@ async def get_chat_id_to_remove(update: Update, _context: ContextTypes.DEFAULT_T
     try:
         admin_to_remove = int(update.message.text.strip())
         admins = await check_admin()
-        if admin_to_remove == update.effective_chat.id:
+        requester_id = update.effective_chat.id
+        
+        if admin_to_remove == requester_id:
             await update.message.reply_html(
                 text="⚠️ <b>Cannot Remove Yourself</b>\n\n"
                 + "You cannot remove yourself as an administrator.\n"
@@ -488,7 +500,7 @@ async def get_chat_id_to_remove(update: Update, _context: ContextTypes.DEFAULT_T
                 + "You cannot remove the last administrator.\n"
                 + "Please add another admin first with /add_admin."
             )
-        elif await remove_admin_from_config(admin_to_remove):
+        elif await remove_admin_from_config(admin_to_remove, requester_id):
             await update.message.reply_html(
                 text="✅ <b>Admin Removed</b>\n\n"
                 + f"Admin <code>{admin_to_remove}</code> has been removed successfully."

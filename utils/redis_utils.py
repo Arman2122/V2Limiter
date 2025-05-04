@@ -177,6 +177,199 @@ class RedisClient:
             logger.error(f"Error getting all services and IPs from Redis: {e}")
             return {"services": {}, "last_update": int(time.time())}
     
+    # New methods for handling special limits
+    async def set_special_limits(self, special_limits: Dict[str, int]) -> bool:
+        """
+        Store special limits in Redis.
+        
+        Args:
+            special_limits: Dict of username to limit
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            self.redis.set("special_limits", json.dumps(special_limits))
+            logger.info(f"Updated special limits in Redis: {special_limits}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting special limits in Redis: {e}")
+            return False
+    
+    # New methods for handling except users
+    async def set_except_users(self, except_users: List[str]) -> bool:
+        """
+        Store except users in Redis.
+        
+        Args:
+            except_users: List of usernames to exempt
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            self.redis.set("except_users", json.dumps(except_users))
+            logger.info(f"Updated except users in Redis: {except_users}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting except users in Redis: {e}")
+            return False
+    
+    async def get_except_users(self) -> List[str]:
+        """
+        Get except users from Redis.
+        
+        Returns:
+            List[str]: List of exempt usernames
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            users_data = self.redis.get("except_users")
+            if users_data:
+                return json.loads(users_data)
+            return []
+        except Exception as e:
+            logger.error(f"Error getting except users from Redis: {e}")
+            return []
+    
+    async def add_except_user(self, username: str) -> bool:
+        """
+        Add a user to the exception list.
+        
+        Args:
+            username: The username to exempt
+            
+        Returns:
+            bool: True if added successfully, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            # Get current except users
+            users = await self.get_except_users()
+            
+            # Add the user if not already in the list
+            if username not in users:
+                users.append(username)
+                
+                # Store the updated list
+                return await self.set_except_users(users)
+            return True  # User already exists in the list
+        except Exception as e:
+            logger.error(f"Error adding except user to Redis: {e}")
+            return False
+    
+    async def remove_except_user(self, username: str) -> bool:
+        """
+        Remove a user from the exception list.
+        
+        Args:
+            username: The username to remove
+            
+        Returns:
+            bool: True if removed successfully, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            # Get current except users
+            users = await self.get_except_users()
+            
+            # Remove the user if exists
+            if username in users:
+                users.remove(username)
+                
+                # Store the updated list
+                return await self.set_except_users(users)
+            return False  # User not in the list
+        except Exception as e:
+            logger.error(f"Error removing except user from Redis: {e}")
+            return False
+    
+    async def get_special_limits(self) -> Dict[str, int]:
+        """
+        Get special limits from Redis.
+        
+        Returns:
+            Dict[str, int]: Dict of username to limit
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            limits_data = self.redis.get("special_limits")
+            if limits_data:
+                return json.loads(limits_data)
+            return {}
+        except Exception as e:
+            logger.error(f"Error getting special limits from Redis: {e}")
+            return {}
+    
+    async def add_special_limit(self, username: str, limit: int) -> bool:
+        """
+        Add a special limit for a user.
+        
+        Args:
+            username: The username
+            limit: The limit value
+            
+        Returns:
+            bool: True if added successfully, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            # Get current special limits
+            limits = await self.get_special_limits()
+            
+            # Add or update the limit
+            limits[username] = limit
+            
+            # Store the updated limits
+            return await self.set_special_limits(limits)
+        except Exception as e:
+            logger.error(f"Error adding special limit to Redis: {e}")
+            return False
+    
+    async def remove_special_limit(self, username: str) -> bool:
+        """
+        Remove a special limit for a user.
+        
+        Args:
+            username: The username to remove
+            
+        Returns:
+            bool: True if removed successfully, False otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+        
+        try:
+            # Get current special limits
+            limits = await self.get_special_limits()
+            
+            # Remove the user if exists
+            if username in limits:
+                del limits[username]
+                
+                # Store the updated limits
+                return await self.set_special_limits(limits)
+            return False
+        except Exception as e:
+            logger.error(f"Error removing special limit from Redis: {e}")
+            return False
+    
     async def clear_all_data(self) -> bool:
         """
         Clear all Redis data related to services and IPs.
