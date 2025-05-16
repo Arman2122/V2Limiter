@@ -168,7 +168,7 @@ async def main():
             for node in nodes_list:
                 if node.status == "connected":
                     connected_nodes += 1
-                    logger.info(f"Creating task for node: {node.name}")
+                    logger.info(f"Creating task for node: {node.node_name}")
                     await create_node_task(panel_data, tg, node)
                     await asyncio.sleep(4)
             logger.info(f"Initialized {connected_nodes} connected nodes out of {len(nodes_list)} total nodes")

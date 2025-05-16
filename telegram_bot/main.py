@@ -1010,7 +1010,7 @@ async def get_api_docs(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_html(
         text=f"🔗 <b>API Documentation URL</b>\n\n"
              f"You can access the API documentation at:\n"
-             f"<code>{api_docs_url}</code>\n\n"
+             f"{api_docs_url}\n\n"
              f"This URL provides interactive documentation for all API endpoints."
     )
     return ConversationHandler.END
