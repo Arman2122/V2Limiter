@@ -76,7 +76,7 @@ setup_repository() {
     # Set up correct permissions
     cd "$repo_dir"
     chmod +x *.py
-    chmod +x main.py
+    chmod +x v2iplimit.py
     cd ..
 }
 
@@ -287,7 +287,7 @@ start_with_screen() {
     fi
     
     cd V2Limiter
-    screen -Sdm v2iplimit python3 main.py
+    screen -Sdm v2iplimit python3 v2iplimit.py
     cd ..
     
     echo -e "${GREEN}${BOLD}The program has been started with screen.${NC}"
