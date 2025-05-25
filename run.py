@@ -73,6 +73,7 @@ async def start_application():
 
 def main():
     """Main entry point."""
+    loop = None
     try:
         # Check prerequisites
         if not check_prerequisites():
@@ -92,40 +93,37 @@ def main():
             loop.run_until_complete(start_application())
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received, shutting down...")
+        except Exception as e:
+            logger.critical(f"Unhandled exception in main: {e}")
+            logger.error(traceback.format_exc())
+            print(f"\nCritical error: {e}")
+            print("Check the logs for more details.")
         finally:
-            # Cancel any remaining tasks
-            remaining_tasks = [task for task in asyncio.all_tasks(loop) 
-                              if not task.done() and task != asyncio.current_task()]
-            
-            if remaining_tasks:
-                logger.info(f"Cancelling {len(remaining_tasks)} remaining tasks...")
-                for task in remaining_tasks:
-                    task.cancel()
-                
-                # Give tasks a moment to cancel
-                if remaining_tasks:
-                    loop.run_until_complete(asyncio.gather(*remaining_tasks, return_exceptions=True))
-        
+            # Cancel any remaining tasks if the loop is still running
+            try:
+                if loop.is_running():
+                    remaining_tasks = [task for task in asyncio.all_tasks(loop) 
+                                      if not task.done() and task != asyncio.current_task()]
+                    if remaining_tasks:
+                        logger.info(f"Cancelling {len(remaining_tasks)} remaining tasks...")
+                        for task in remaining_tasks:
+                            task.cancel()
+                        loop.run_until_complete(asyncio.gather(*remaining_tasks, return_exceptions=True))
+            except RuntimeError as e:
+                logger.error(f"Error during task cancellation: {e}")
     except KeyboardInterrupt:
         print("\nApplication terminated by user.")
         logger.info("Application terminated by user via KeyboardInterrupt")
-    except Exception as e:
-        logger.critical(f"Unhandled exception in main: {e}")
-        logger.error(traceback.format_exc())
-        print(f"\nCritical error: {e}")
-        print("Check the logs for more details.")
     finally:
-        # Cleanup
         print("\nShutting down...")
-        
-        try:
-            # Close the loop properly
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
-        except Exception as e:
-            logger.error(f"Error during shutdown: {e}")
-            
+        if loop is not None:
+            try:
+                if not loop.is_closed():
+                    loop.run_until_complete(loop.shutdown_asyncgens())
+                    loop.close()
+            except Exception as e:
+                logger.error(f"Error during shutdown: {e}")
         logger.info("Application shutdown complete")
-        
+
 if __name__ == "__main__":
     main() 

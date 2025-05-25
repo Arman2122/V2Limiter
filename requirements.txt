@@ -6,4 +6,3 @@ uvicorn
 python-jose[cryptography]
 python-multipart
 pydantic
-fastapi-swagger-ui

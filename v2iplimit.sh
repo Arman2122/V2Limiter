@@ -230,7 +230,7 @@ setup_systemd() {
         local abs_repo_path="$script_dir"
     fi
     
-    if [[ ! -f "$abs_repo_path/run.py" ]]; then
+    if [[ ! -f "$abs_repo_path/v2iplimit.py" ]]; then
         echo -e "${YELLOW}Warning: Could not find run.py in $abs_repo_path${NC}"
         echo -e "${YELLOW}Using current directory as fallback${NC}"
         local abs_repo_path=$(pwd)
@@ -247,7 +247,7 @@ Wants=redis.service
 Type=simple
 User=root
 WorkingDirectory=${abs_repo_path}
-ExecStart=/usr/bin/python3 ${abs_repo_path}/run.py
+ExecStart=/usr/bin/python3 ${abs_repo_path}/v2iplimit.py
 Restart=on-failure
 RestartSec=10
 KillSignal=SIGINT
